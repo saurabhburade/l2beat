@@ -24,6 +24,7 @@
     "coingecko:platforms": "node -r esbuild-register scripts/getCoingeckoPlatforms.ts",
     "stargatev2-pools": "node -r esbuild-register scripts/stargatev2-pools",
     "layer2-details": "node -r esbuild-register scripts/writeLayer2Details.ts"
+    "layer2-details-full": "node -r esbuild-register scripts/writeLayer2DetailsFull.ts"
   },
   "dependencies": {
     "@l2beat/backend-tools": "*",
