@@ -27,11 +27,11 @@
     "layer2-details-full": "node -r esbuild-register scripts/writeLayer2DetailsFull.ts"
   },
   "dependencies": {
-    "@l2beat/backend-tools": "*",
-    "@l2beat/discovery": "*",
-    "@l2beat/discovery-types": "*",
-    "@l2beat/shared": "*",
-    "@l2beat/shared-pure": "*",
+    "@l2beat/backend-tools": "workspace:*",
+    "@l2beat/discovery": "workspace:*",
+    "@l2beat/discovery-types": "workspace:*",
+    "@l2beat/shared": "workspace:*",
+    "@l2beat/shared-pure": "workspace:*",
     "chalk": "^4.1.2",
     "cheerio": "^1.0.0-rc.11",
     "dotenv": "^16.4.5",
