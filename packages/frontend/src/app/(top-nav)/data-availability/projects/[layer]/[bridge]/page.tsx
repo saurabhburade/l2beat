@@ -6,21 +6,46 @@ import { MobileProjectNavigation } from '~/components/projects/navigation/mobile
 import { projectDetailsToNavigationSections } from '~/components/projects/navigation/types'
 import { ProjectDetails } from '~/components/projects/project-details'
 import { getDaProjectEntry } from '~/server/features/data-availability/project/get-da-project-entry'
+import { getProjectMetadata } from '~/utils/metadata'
 import { DaProjectSummary } from '../_components/da-project-summary'
 
 interface Props {
-  params: {
+  params: Promise<{
     layer: string
     bridge: string
+  }>
+}
+
+export async function generateMetadata(props: Props) {
+  const params = await props.params
+  const layer = daLayers.find((layer) => layer.display.slug === params.layer)
+  if (!layer) {
+    notFound()
   }
+  const bridge = layer.bridges.find(
+    (bridge) => bridge.display.slug === params.bridge,
+  )
+  if (!bridge) {
+    notFound()
+  }
+  return getProjectMetadata({
+    project: {
+      name: layer.display.name,
+      description: layer.display.description,
+    },
+    metadata: {
+      openGraph: {
+        url: `/data-availability/projects/${layer.display.slug}/${bridge.display.slug}`,
+      },
+    },
+  })
 }
 
 export default async function Page(props: Props) {
-  const daLayer = daLayers.find((p) => p.display.slug === props.params.layer)
+  const params = await props.params
+  const daLayer = daLayers.find((p) => p.display.slug === params.layer)
   if (!daLayer) return notFound()
-  const daBridge = daLayer.bridges.find(
-    (b) => b.display.slug === props.params.bridge,
-  )
+  const daBridge = daLayer.bridges.find((b) => b.display.slug === params.bridge)
   if (!daBridge) return notFound()
 
   const daProjectEntry = await getDaProjectEntry(daLayer, daBridge)
@@ -47,7 +72,7 @@ export default async function Page(props: Props) {
               project={{
                 title: daProjectEntry.name,
                 slug: daLayer.display.slug,
-                showProjectUnderReview: daProjectEntry.isUnderReview,
+                isUnderReview: daProjectEntry.isUnderReview,
               }}
               sections={navigationSections}
               projectVariants={daLayer.bridges.map((bridge) => ({

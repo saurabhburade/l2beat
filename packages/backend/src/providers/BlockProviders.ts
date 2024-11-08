@@ -2,41 +2,58 @@ import { Logger, RateLimiter } from '@l2beat/backend-tools'
 import {
   BlockIndexerClient,
   BlockProvider,
+  FuelClient,
   HttpClient,
   HttpClient2,
   RetryHandler,
   RpcClient2,
+  ZksyncLiteClient,
 } from '@l2beat/shared'
 import { assert, ProjectId, assertUnreachable } from '@l2beat/shared-pure'
+import { groupBy } from 'lodash'
 import { ActivityConfig } from '../config/Config'
 import { BlockTimestampProvider } from '../modules/tvl/services/BlockTimestampProvider'
 import { DegateClient } from '../peripherals/degate'
 import { LoopringClient } from '../peripherals/loopring/LoopringClient'
 import { StarkexClient } from '../peripherals/starkex/StarkexClient'
 import { StarknetClient } from '../peripherals/starknet/StarknetClient'
-import { ZksyncLiteClient } from '../peripherals/zksynclite/ZksyncLiteClient'
 
 export class BlockProviders {
+  blockProviders: Map<string, BlockProvider> = new Map()
+  timestampProviders: Map<string, BlockTimestampProvider> = new Map()
+
   constructor(
     private readonly config: ActivityConfig,
-    private readonly evmClients: RpcClient2[],
-    // there needs to be possiblity of undefined,
-    // because a chain can possibly be disabled
-    readonly zksyncLiteClient: ZksyncLiteClient | undefined,
+    private readonly clients: (RpcClient2 | ZksyncLiteClient | FuelClient)[],
     readonly starknetClient: StarknetClient | undefined,
     readonly loopringClient: LoopringClient | undefined,
     readonly degateClient: DegateClient | undefined,
     readonly starkexClient: StarkexClient | undefined,
     private readonly indexerClients: BlockIndexerClient[],
-  ) {}
+  ) {
+    const byChain = groupBy(clients, (c) => c.chain)
+    for (const [chain, clients] of Object.entries(byChain)) {
+      const block = new BlockProvider(clients)
+      this.blockProviders.set(chain, block)
 
-  getEvmBlockProvider(chain: string) {
-    const clients = this.evmClients.filter((r) => r.chain === chain)
-    assert(clients.length > 0, `No configured clients for ${chain}`)
-
-    return new BlockProvider(clients)
+      const indexerClients = this.indexerClients.filter(
+        (c) => c.chain === chain,
+      )
+      const timestamp = new BlockTimestampProvider({
+        blockClients: clients,
+        indexerClients,
+      })
+      this.timestampProviders.set(chain, timestamp)
+    }
   }
 
+  getBlockProvider(chain: string) {
+    const provider = this.blockProviders.get(chain)
+    assert(provider, `Provider not found: ${chain}`)
+    return provider
+  }
+
+  // TODO: refactor in the same way as blocks
   getBlockTimestampProvider(chain: string) {
     const project = this.config.projects.find((p) => p.id === chain)
     assert(project, `Project ${chain} not found`)
@@ -44,14 +61,11 @@ export class BlockProviders {
     const indexerClients = this.indexerClients.filter((c) => c.chain === chain)
 
     switch (project.config.type) {
-      case 'rpc': {
-        const blockClients = this.evmClients.filter((r) => r.chain === chain)
+      case 'rpc':
+      case 'zksync':
+      case 'fuel': {
+        const blockClients = this.clients.filter((r) => r.chain === chain)
         assert(blockClients.length > 0, `No configured clients for ${chain}`)
-        return new BlockTimestampProvider({ indexerClients, blockClients })
-      }
-      case 'zksync': {
-        assert(this.zksyncLiteClient, 'zksyncLiteClient should be defined')
-        const blockClients = [this.zksyncLiteClient]
         return new BlockTimestampProvider({ indexerClients, blockClients })
       }
       case 'starknet': {
@@ -84,6 +98,7 @@ export function initBlockProviders(config: ActivityConfig): BlockProviders {
   let loopringClient: LoopringClient | undefined
   let degateClient: DegateClient | undefined
   let starkexClient: StarkexClient | undefined
+  let fuelClient: FuelClient | undefined
 
   const evmClients: RpcClient2[] = []
   const indexerClients: BlockIndexerClient[] = []
@@ -113,13 +128,13 @@ export function initBlockProviders(config: ActivityConfig): BlockProviders {
         // TODO: handle multiple urls
         const rpcClient = new RpcClient2({
           url: project.config.url,
+          chain: project.id,
           http: http2,
           rateLimiter: new RateLimiter({
             callsPerMinute: project.config.callsPerMinute,
           }),
           retryHandler,
           logger,
-          chain: project.id,
         })
 
         evmClients.push(rpcClient)
@@ -127,12 +142,15 @@ export function initBlockProviders(config: ActivityConfig): BlockProviders {
         break
       }
       case 'zksync': {
-        zksyncLiteClient = new ZksyncLiteClient(
-          http,
+        zksyncLiteClient = new ZksyncLiteClient({
+          url: project.config.url,
+          http: http2,
+          rateLimiter: new RateLimiter({
+            callsPerMinute: project.config.callsPerMinute,
+          }),
+          retryHandler: RetryHandler.RELIABLE_API(logger),
           logger,
-          project.config.url,
-          project.config.callsPerMinute,
-        )
+        })
         break
       }
       case 'starknet': {
@@ -159,6 +177,18 @@ export function initBlockProviders(config: ActivityConfig): BlockProviders {
         })
         break
       }
+      case 'fuel': {
+        fuelClient = new FuelClient({
+          url: project.config.url,
+          http: http2,
+          rateLimiter: new RateLimiter({
+            callsPerMinute: project.config.callsPerMinute,
+          }),
+          retryHandler: RetryHandler.RELIABLE_API(logger),
+          logger,
+        })
+        break
+      }
       default:
         assertUnreachable(project.config)
     }
@@ -166,8 +196,11 @@ export function initBlockProviders(config: ActivityConfig): BlockProviders {
 
   return new BlockProviders(
     config,
-    evmClients,
-    zksyncLiteClient,
+    [
+      ...evmClients,
+      ...(zksyncLiteClient ? [zksyncLiteClient] : []),
+      ...(fuelClient ? [fuelClient] : []),
+    ],
     starknetClient,
     loopringClient,
     degateClient,

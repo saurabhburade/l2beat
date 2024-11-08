@@ -18,6 +18,8 @@ import {
   TooltipTrigger,
 } from '../../core/tooltip/tooltip'
 
+import type { JSX } from 'react'
+
 export interface TypeCellProps {
   children: string | undefined
   disableColors?: boolean
@@ -53,7 +55,7 @@ interface ProviderProps {
   text: string
 }
 
-export const providerMap: Record<
+const providerMap: Record<
   Layer2Provider | Layer3Provider,
   ProviderProps | undefined
 > = {

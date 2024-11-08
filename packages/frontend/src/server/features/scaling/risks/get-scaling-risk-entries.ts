@@ -1,7 +1,10 @@
-import { type Layer2, layer2s } from '@l2beat/config'
+import { type Layer2, type Layer3, layer2s, layer3s } from '@l2beat/config'
 import { env } from '~/env'
 import { groupByMainCategories } from '~/utils/group-by-main-categories'
-import { getImplementationChangeReport } from '../../implementation-change-report/get-implementation-change-report'
+import {
+  type ProjectsChangeReport,
+  getProjectsChangeReport,
+} from '../../projects-change-report/get-projects-change-report'
 import { getProjectsVerificationStatuses } from '../../verification-status/get-projects-verification-statuses'
 import { getCommonScalingEntry } from '../get-common-scaling-entry'
 import { getProjectsLatestTvlUsd } from '../tvl/utils/get-latest-tvl-usd'
@@ -12,20 +15,22 @@ export type ScalingRiskEntries = Awaited<
   ReturnType<typeof getScalingRiskEntries>
 >
 export async function getScalingRiskEntries() {
-  const [tvl, implementationChangeReport, projectsVerificationStatuses] =
+  const [tvl, projectsChangeReport, projectsVerificationStatuses] =
     await Promise.all([
       getProjectsLatestTvlUsd(),
-      getImplementationChangeReport(),
+      getProjectsChangeReport(),
       getProjectsVerificationStatuses(),
     ])
 
-  const includedProjects = layer2s.filter((p) => !p.isUpcoming && !p.isArchived)
+  const includedProjects = [...layer2s, ...layer3s].filter(
+    (p) => !p.isUpcoming && !p.isArchived,
+  )
 
   const entries = includedProjects.map((project) =>
     getScalingRiskEntry(
       project,
       !!projectsVerificationStatuses[project.id.toString()],
-      !!implementationChangeReport.projects[project.id.toString()],
+      projectsChangeReport,
     ),
   )
 
@@ -41,17 +46,23 @@ export async function getScalingRiskEntries() {
 
 export type ScalingRiskEntry = ReturnType<typeof getScalingRiskEntry>
 function getScalingRiskEntry(
-  project: Layer2,
+  project: Layer2 | Layer3,
   isVerified: boolean,
-  hasImplementationChanged: boolean,
+  projectsChangeReport: ProjectsChangeReport,
 ) {
+  const riskView =
+    project.type === 'layer3' ? project.stackedRiskView : project.riskView
   return {
     entryType: 'risk' as const,
     ...getCommonScalingEntry({
       project,
       isVerified,
-      hasImplementationChanged,
+      hasImplementationChanged: projectsChangeReport.hasImplementationChanged(
+        project.id,
+      ),
+      hasHighSeverityFieldChanged:
+        projectsChangeReport.hasHighSeverityFieldChanged(project.id),
     }),
-    risks: project.riskView,
+    risks: riskView,
   }
 }

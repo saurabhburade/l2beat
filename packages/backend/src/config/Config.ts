@@ -1,4 +1,3 @@
-import { LoggerOptions } from '@l2beat/backend-tools'
 import { DiscoveryChainConfig } from '@l2beat/discovery'
 import {
   AmountConfigEntry,
@@ -22,6 +21,7 @@ export interface Config {
   readonly clock: ClockConfig
   readonly metricsAuth: MetricsAuthConfig | false
   readonly database: DatabaseConfig
+  readonly coingeckoApiKey: string
   readonly api: ApiConfig
   readonly health: HealthConfig
   readonly tvl: TvlConfig | false
@@ -37,15 +37,6 @@ export interface Config {
   readonly flags: ResolvedFeatureFlag[]
   readonly verifiers: boolean
   readonly daBeat: DABeatConfig | false
-}
-
-export type LoggerConfig = Pick<LoggerOptions, 'logLevel'> &
-  Partial<LoggerOptions>
-
-export interface LogThrottlerConfig {
-  readonly callsUntilThrottle: number
-  readonly clearIntervalMs: number
-  readonly throttleTimeMs: number
 }
 
 export interface ApiConfig {
@@ -86,7 +77,6 @@ export interface TvlConfig {
   readonly amounts: AmountConfigEntry[]
   readonly chains: ChainTvlConfig[]
   readonly projects: BackendProject[]
-  readonly coingeckoApiKey: string | undefined
   readonly chainConverter: ChainConverter
   // used by value indexer
   readonly maxTimestampsToAggregateAtOnce: number
@@ -106,7 +96,6 @@ export interface TrackedTxsConfig {
     readonly l2costs:
       | {
           readonly aggregatorEnabled: boolean
-          readonly coingeckoApiKey: string | undefined
         }
       | false
   }
@@ -189,7 +178,6 @@ export interface DiscordConfig {
 }
 
 export interface DABeatConfig {
-  readonly coingeckoApiKey: string
   readonly quicknodeApiUrl: string
   readonly quicknodeCallsPerMinute: number
   readonly celestiaApiUrl: string

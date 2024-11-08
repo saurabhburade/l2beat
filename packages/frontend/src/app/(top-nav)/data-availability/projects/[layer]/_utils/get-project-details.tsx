@@ -1,12 +1,12 @@
 import { type DaBridge, type DaLayer } from '@l2beat/config'
 import {
   type ContractsVerificationStatuses,
-  type ImplementationChangeReportApiResponse,
   type ManuallyVerifiedContracts,
 } from '@l2beat/shared-pure'
 import { mapBridgeRisksToRosetteValues } from '~/app/(side-nav)/data-availability/_utils/map-risks-to-rosette-values'
 import { type ProjectDetailsSection } from '~/components/projects/sections/types'
 import { type RosetteValue } from '~/components/rosette/types'
+import { type ProjectsChangeReport } from '~/server/features/projects-change-report/get-projects-change-report'
 import { getMultiChainContractsSection } from '~/utils/project/contracts-and-permissions/get-multichain-contract-section'
 import { getMultichainPermissionsSection } from '~/utils/project/contracts-and-permissions/get-multichain-permissions-section'
 import { toTechnologyRisk } from '~/utils/project/risk-summary/to-technology-risk'
@@ -19,7 +19,7 @@ interface Params {
   isVerified: boolean
   contractsVerificationStatuses: ContractsVerificationStatuses
   manuallyVerifiedContracts: ManuallyVerifiedContracts
-  implementationChangeReport: ImplementationChangeReportApiResponse
+  projectsChangeReport: ProjectsChangeReport
   grissiniValues: RosetteValue[]
 }
 
@@ -29,16 +29,22 @@ export function getProjectDetails({
   isVerified,
   contractsVerificationStatuses,
   manuallyVerifiedContracts,
-  implementationChangeReport,
+  projectsChangeReport,
   grissiniValues,
 }: Params) {
+  const relatedScalingProject =
+    daBridge.type === 'DAC' && daBridge.usedIn.length === 1
+      ? daBridge.usedIn[0]
+      : undefined
+
   const permissionsSection =
-    daBridge.type !== 'NoBridge' && daBridge.type !== 'Enshrined'
+    daBridge.type !== 'Enshrined'
       ? getMultichainPermissionsSection(
           {
             id: daLayer.id,
             isUnderReview: !!daLayer.isUnderReview,
             permissions: daBridge.permissions,
+            dacUsedIn: relatedScalingProject,
           },
           contractsVerificationStatuses,
           manuallyVerifiedContracts,
@@ -46,7 +52,7 @@ export function getProjectDetails({
       : undefined
 
   const contractsSection =
-    daBridge.type !== 'NoBridge' && daBridge.type !== 'Enshrined'
+    daBridge.type !== 'Enshrined'
       ? getMultiChainContractsSection(
           {
             id: daBridge.id,
@@ -54,10 +60,11 @@ export function getProjectDetails({
             slug: daBridge.display.slug,
             contracts: daBridge.contracts,
             isUnderReview: daLayer.isUnderReview,
+            dacUsedIn: relatedScalingProject,
           },
           contractsVerificationStatuses,
           manuallyVerifiedContracts,
-          implementationChangeReport,
+          projectsChangeReport,
         )
       : undefined
 
@@ -95,7 +102,10 @@ export function getProjectDetails({
         slug: daLayer.display.slug,
       },
       content: daLayer.technology.description,
+      mdClassName:
+        'da-beat text-gray-850 leading-snug dark:text-gray-400 md:text-lg',
       risks: daLayer.technology.risks?.map(toTechnologyRisk),
+      references: daLayer.technology.references,
     },
   })
 
@@ -109,6 +119,7 @@ export function getProjectDetails({
       isUnderReview: !!daLayer.isUnderReview,
       isVerified,
       grissiniValues: mapBridgeRisksToRosetteValues(daBridge.risks),
+      hideRisks: daBridge.type === 'NoBridge',
     },
   })
 
@@ -122,7 +133,10 @@ export function getProjectDetails({
         slug: `${daLayer.display.slug}-${daBridge.display.slug}`,
       },
       content: daBridge.technology.description,
+      mdClassName:
+        'da-beat text-gray-850 leading-snug dark:text-gray-400 md:text-lg',
       risks: daBridge.technology.risks?.map(toTechnologyRisk),
+      references: daBridge.technology.references,
     },
   })
 
@@ -151,9 +165,12 @@ export function getProjectDetails({
 
   const items: ProjectDetailsSection[] = []
 
-  if (riskSummarySection.riskGroups.length > 0) {
+  if (
+    riskSummarySection.layer.risks.concat(riskSummarySection.bridge.risks)
+      .length > 0
+  ) {
     items.push({
-      type: 'RiskSummarySection',
+      type: 'DaRiskSummarySection',
       props: {
         id: 'risk-summary',
         title: 'Risk summary',
@@ -175,6 +192,7 @@ export function getProjectDetails({
   if (daBridgeItems.length > 0) {
     items.push({
       type: 'Group',
+      sideNavTitle: daBridge.type === 'NoBridge' ? 'DA Bridge' : undefined,
       props: {
         id: 'da-bridge',
         title: daBridge.display.name,

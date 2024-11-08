@@ -4,6 +4,10 @@ import { ChildIndexer, Retries } from '@l2beat/uif'
 import { mean } from 'lodash'
 
 import { Database, FinalityRecord } from '@l2beat/database'
+import {
+  batchToTimeToInclusionDelays,
+  batchesToStateUpdateDelays,
+} from './analyzers/types/BaseAnalyzer'
 import { FinalityConfig } from './types/FinalityConfig'
 
 const UPDATE_RETRY_STRATEGY = Retries.exponentialBackOff({
@@ -96,19 +100,24 @@ export class FinalityIndexer extends ChildIndexer {
 
     const from = to.add(-1, 'days')
 
-    const inclusionDelays = await timeToInclusion.analyzeInterval(from, to)
-
-    if (!inclusionDelays) {
+    const t2iBatches = await timeToInclusion.analyzeInterval(from, to)
+    if (!t2iBatches) {
       return
     }
 
-    const averageTimeToInclusion = Math.round(mean(inclusionDelays))
+    const t2iDelay = t2iBatches.flatMap((batch) =>
+      batchToTimeToInclusionDelays(batch),
+    )
+    const averageTimeToInclusion = Math.round(mean(t2iDelay))
+    const minimumTimeToInclusion = minimum(t2iDelay)
+    const maximumTimeToInclusion = maximum(t2iDelay)
+
     const baseResult = {
       projectId: configuration.projectId,
       timestamp: to,
 
-      minimumTimeToInclusion: Math.min(...inclusionDelays),
-      maximumTimeToInclusion: Math.max(...inclusionDelays),
+      minimumTimeToInclusion,
+      maximumTimeToInclusion,
       averageTimeToInclusion,
     }
 
@@ -124,12 +133,12 @@ export class FinalityIndexer extends ChildIndexer {
       `State update analyzer is not defined for ${configuration.projectId}, update module or set state update mode to 'disabled'`,
     )
 
-    const stateUpdateDelays = await stateUpdate.analyzeInterval(from, to)
-
-    if (!stateUpdateDelays) {
+    const suBatches = await stateUpdate.analyzeInterval(from, to)
+    if (!suBatches) {
       return
     }
 
+    const stateUpdateDelays = batchesToStateUpdateDelays(t2iBatches, suBatches)
     return {
       ...baseResult,
       averageStateUpdate:
@@ -185,4 +194,28 @@ export class FinalityIndexer extends ChildIndexer {
   override async invalidate(targetHeight: number): Promise<number> {
     return await Promise.resolve(targetHeight)
   }
+}
+
+function minimum(values: number[]): number {
+  if (values.length === 0) {
+    return 0
+  }
+
+  let result = Infinity
+  for (const v of values) {
+    result = Math.min(result, v)
+  }
+  return result
+}
+
+function maximum(values: number[]): number {
+  if (values.length === 0) {
+    return 0
+  }
+
+  let result = -Infinity
+  for (const v of values) {
+    result = Math.max(result, v)
+  }
+  return result
 }

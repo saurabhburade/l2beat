@@ -1,4 +1,4 @@
-import { readdirSync } from 'fs'
+import { existsSync, readdirSync } from 'fs'
 import { readFileSync } from 'fs'
 import path from 'path'
 import { DiscoveryOutput } from '@l2beat/discovery-types'
@@ -19,11 +19,15 @@ import {
 export class ConfigReader {
   public templateService: TemplateService
 
-  constructor(private readonly rootPath: string = '') {
+  constructor(readonly rootPath: string = '') {
     this.templateService = new TemplateService(rootPath)
   }
 
-  readConfig(name: string, chain: string): DiscoveryConfig {
+  readConfig(
+    name: string,
+    chain: string,
+    options?: { skipTemplates: boolean },
+  ): DiscoveryConfig {
     assert(
       fileExistsCaseSensitive(path.join(this.rootPath, 'discovery', name)),
       'Project not found, check if case matches',
@@ -46,7 +50,9 @@ export class ConfigReader {
       throw new Error(`Cannot parse file ${name}/${chain}/config.jsonc`)
     }
 
-    this.templateService.inlineTemplates(rawConfig.data)
+    if (!options?.skipTemplates) {
+      this.templateService.inlineTemplates(rawConfig.data)
+    }
 
     const globalTypes = this.readGlobalTypes()
     const commonAddressNames = this.readCommonAddressNames()
@@ -116,6 +122,21 @@ export class ConfigReader {
     }
 
     return result
+  }
+
+  readAllChainsForProject(name: string) {
+    const chains = readdirSync(
+      path.join(this.rootPath, 'discovery', name),
+    ).filter((chain) => {
+      try {
+        return existsSync(
+          path.join(this.rootPath, 'discovery', name, chain, 'config.jsonc'),
+        )
+      } catch {
+        return false
+      }
+    })
+    return chains
   }
 
   readAllProjectsForChain(chain: string): string[] {

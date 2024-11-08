@@ -1,4 +1,5 @@
 import { type DaBridge, type DaLayer, getDaProjectKey } from '@l2beat/config'
+import { type UsedInProject } from '@l2beat/config/build/src/projects/other/da-beat/types/UsedInProject'
 import {
   mapBridgeRisksToRosetteValues,
   mapLayerRisksToRosetteValues,
@@ -6,7 +7,7 @@ import {
 import { getProjectDetails } from '~/app/(top-nav)/data-availability/projects/[layer]/_utils/get-project-details'
 import { type RosetteValue } from '~/components/rosette/types'
 import { getDataAvailabilityProjectLinks } from '~/utils/project/get-project-links'
-import { getImplementationChangeReport } from '../../implementation-change-report/get-implementation-change-report'
+import { getProjectsChangeReport } from '../../projects-change-report/get-projects-change-report'
 import { getContractsVerificationStatuses } from '../../verification-status/get-contracts-verification-statuses'
 import { getManuallyVerifiedContracts } from '../../verification-status/get-manually-verified-contracts'
 import { getProjectsVerificationStatuses } from '../../verification-status/get-projects-verification-statuses'
@@ -35,14 +36,14 @@ export async function getDaProjectEntry(daLayer: DaLayer, daBridge: DaBridge) {
     projectsVerificationStatuses,
     contractsVerificationStatuses,
     manuallyVerifiedContracts,
-    implementationChangeReport,
+    projectsChangeReport,
   ] = await Promise.all([
     getDaProjectEconomicSecurity(daLayer),
     getDaProjectsTvl(uniqueProjectsInUse),
     getProjectsVerificationStatuses(),
     getContractsVerificationStatuses(daLayer),
     getManuallyVerifiedContracts(daLayer),
-    getImplementationChangeReport(),
+    getProjectsChangeReport(),
   ])
 
   const layerTvs =
@@ -61,7 +62,7 @@ export async function getDaProjectEntry(daLayer: DaLayer, daBridge: DaBridge) {
     isVerified,
     contractsVerificationStatuses,
     manuallyVerifiedContracts,
-    implementationChangeReport,
+    projectsChangeReport,
     grissiniValues,
   })
 
@@ -86,15 +87,20 @@ export async function getDaProjectEntry(daLayer: DaLayer, daBridge: DaBridge) {
       slug: bridge.display.slug,
       grissiniValues: mapBridgeRisksToRosetteValues(bridge.risks),
       tvs: getSumFor(bridge.usedIn.map((project) => project.id)),
-      usedIn: bridge.usedIn,
+      type: bridge.type,
+      usedIn: bridge.usedIn.sort(
+        (a, b) => getSumFor([b.id]) - getSumFor([a.id]),
+      ),
     })),
     header: getHeader({
       daLayerGrissiniValues: grissiniValues,
       daBridgeGrissiniValues: mapBridgeRisksToRosetteValues(daBridge.risks),
       daLayer,
-      daBridge,
       tvs: layerTvs,
       economicSecurity,
+      usedIn: daLayer.bridges
+        .flatMap((bridge) => bridge.usedIn)
+        .sort((a, b) => getSumFor([b.id]) - getSumFor([a.id])),
     }),
     projectDetails,
   }
@@ -104,18 +110,18 @@ interface HeaderParams {
   daLayerGrissiniValues: RosetteValue[]
   daBridgeGrissiniValues: RosetteValue[]
   daLayer: DaLayer
-  daBridge: DaBridge
   tvs: number
   economicSecurity: EconomicSecurityData | undefined
+  usedIn: UsedInProject[]
 }
 
 function getHeader({
   daLayerGrissiniValues,
   daBridgeGrissiniValues,
   daLayer,
-  daBridge,
   tvs,
   economicSecurity,
+  usedIn,
 }: HeaderParams) {
   return {
     daLayerGrissiniValues,
@@ -125,7 +131,8 @@ function getHeader({
     economicSecurity,
     durationStorage:
       daLayer.kind === 'PublicBlockchain' ? daLayer.pruningWindow : undefined,
-    usedIn: daLayer.usedIn,
+    numberOfOperators: daLayer.numberOfOperators,
+    usedIn,
   }
 }
 

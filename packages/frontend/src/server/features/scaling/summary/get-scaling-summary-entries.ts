@@ -1,10 +1,9 @@
 import { type Layer2, type Layer3, layer2s, layer3s } from '@l2beat/config'
 import { compact } from 'lodash'
 import { getL2Risks } from '~/app/(side-nav)/scaling/_utils/get-l2-risks'
-import { projects } from '~/app/(top-nav)/zk-catalog/_utils/projects'
 import { env } from '~/env'
 import { groupByMainCategories } from '~/utils/group-by-main-categories'
-import { getImplementationChangeReport } from '../../implementation-change-report/get-implementation-change-report'
+import { getProjectsChangeReport } from '../../projects-change-report/get-projects-change-report'
 import { getProjectsVerificationStatuses } from '../../verification-status/get-projects-verification-statuses'
 import {
   type ActivityLatestTpsData,
@@ -27,12 +26,12 @@ export async function getScalingSummaryEntries() {
     (project) => !project.isUpcoming && !project.isArchived,
   )
   const [
-    implementationChangeReport,
+    projectsChangeReport,
     projectsVerificationStatuses,
     tvl,
     projectsActivity,
   ] = await Promise.all([
-    getImplementationChangeReport(),
+    getProjectsChangeReport(),
     getProjectsVerificationStatuses(),
     get7dTokenBreakdown({ type: 'layer2' }),
     getActivityLatestTps(projects),
@@ -40,16 +39,14 @@ export async function getScalingSummaryEntries() {
 
   const entries = projects.map((project) => {
     const isVerified = !!projectsVerificationStatuses[project.id.toString()]
-    const hasImplementationChanged =
-      !!implementationChangeReport.projects[project.id.toString()]
-
     const latestTvl = tvl.projects[project.id.toString()]
     const activity = projectsActivity[project.id.toString()]
 
     return getScalingSummaryEntry(
       project,
       isVerified,
-      hasImplementationChanged,
+      projectsChangeReport.hasImplementationChanged(project.id),
+      projectsChangeReport.hasHighSeverityFieldChanged(project.id),
       latestTvl,
       activity,
     )
@@ -78,6 +75,7 @@ function getScalingSummaryEntry(
   project: Layer2 | Layer3,
   isVerified: boolean,
   hasImplementationChanged: boolean,
+  hasHighSeverityFieldChanged: boolean,
   latestTvl: LatestTvl['projects'][string] | undefined,
   activity: ActivityLatestTpsData[string] | undefined,
 ) {
@@ -98,6 +96,7 @@ function getScalingSummaryEntry(
       project,
       isVerified,
       hasImplementationChanged,
+      hasHighSeverityFieldChanged,
     }),
     dataAvailability: project.dataAvailability,
     mainPermissions: project.display.mainPermissions,
@@ -129,9 +128,7 @@ function getScalingSummaryEntry(
     }
   }
 
-  const baseLayer = projects
-    .filter((layer) => layer.type === 'layer2')
-    .find((p) => p.id === project.hostChain)
+  const baseLayer = layer2s.find((p) => p.id === project.hostChain)
 
   const projectRisks = getL2Risks(project.riskView)
   const baseLayerRisks = baseLayer ? getL2Risks(baseLayer.riskView) : undefined
