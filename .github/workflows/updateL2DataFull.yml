@@ -13,25 +13,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Setup Node
-        uses: actions/setup-node@v2
+      - name: Install Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 18.x
+          node-version: 22
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: yarn --frozen-lockfile
+        run: pnpm install
 
       - name: Build packages
-        run: yarn build:dependencies
-
-      # - name: Goto configs
-      #   run: cd packages/config
-
-      # - name: Install dependencies
-      #   run: yarn
+        run: pnpm build:dependencies
 
       - name: Fetch and save L2s data
-        run: cd packages/config && yarn && yarn layer2-details-full
+        run: cd packages/config && pnpm install && pnpm layer2-details-full
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v3
