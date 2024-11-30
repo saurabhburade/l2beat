@@ -241,6 +241,9 @@ importers:
       '@l2beat/discovery':
         specifier: workspace:*
         version: link:../discovery
+      '@l2beat/discovery-types':
+        specifier: workspace:*
+        version: link:../discovery-types
       '@l2beat/shared':
         specifier: workspace:*
         version: link:../shared

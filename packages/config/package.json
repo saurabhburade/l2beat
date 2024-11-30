@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@l2beat/backend-tools": "workspace:*",
+    "@l2beat/discovery-types": "workspace:*",
     "@l2beat/discovery": "workspace:*",
     "@l2beat/shared": "workspace:*",
     "@l2beat/shared-pure": "workspace:*",
@@ -41,7 +42,6 @@
     "lodash": "^4.17.21",
     "node-fetch": "^2.6.7",
     "simple-git": "^3.27.0",
-
     "zod": "^3.22.2"
   },
   "devDependencies": {
