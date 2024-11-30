@@ -23,6 +23,8 @@ import {
   addSentimentToDataAvailability,
 } from '../../common'
 import { subtractOneAfterBlockInclusive } from '../../common/assessCount'
+import { ESCROW } from '../../common/escrow'
+import { formatChallengePeriod, formatDelay } from '../../common/formatDelays'
 import { ProjectDiscovery } from '../../discovery/ProjectDiscovery'
 import { HARDCODED } from '../../discovery/values/hardcoded'
 import { Badge } from '../badges'
@@ -183,7 +185,7 @@ export const base: Layer2 = {
       discovery.getEscrowDetails({
         address: EthereumAddress('0x9de443AdC5A411E83F1878Ef24C3F52C61571e72'),
         tokens: ['wstETH'],
-        source: 'external',
+        ...ESCROW.CANONICAL_EXTERNAL,
         description:
           'wstETH Vault for custom wstETH Gateway. Fully controlled by Lido governance.',
       }),
@@ -270,11 +272,13 @@ export const base: Layer2 = {
     ],
     coingeckoPlatform: 'base',
   },
-  dataAvailability: addSentimentToDataAvailability({
-    layers: [DA_LAYERS.ETH_BLOBS_OR_CALLLDATA],
-    bridge: DA_BRIDGES.ENSHRINED,
-    mode: DA_MODES.TRANSACTION_DATA_COMPRESSED,
-  }),
+  dataAvailability: [
+    addSentimentToDataAvailability({
+      layers: [DA_LAYERS.ETH_BLOBS_OR_CALLLDATA],
+      bridge: DA_BRIDGES.ENSHRINED,
+      mode: DA_MODES.TRANSACTION_DATA_COMPRESSED,
+    }),
+  ],
   riskView: {
     stateValidation: {
       ...RISK_VIEW.STATE_FP_INT,
@@ -286,7 +290,7 @@ export const base: Layer2 = {
           ],
         },
       ],
-      secondLine: `${formatSeconds(maxClockDuration)} challenge period`,
+      secondLine: formatChallengePeriod(maxClockDuration),
     },
     dataAvailability: RISK_VIEW.DATA_ON_CHAIN,
     exitWindow: RISK_VIEW.EXIT_WINDOW(0, FINALIZATION_PERIOD_SECONDS), // different than op mainnet!
@@ -294,6 +298,7 @@ export const base: Layer2 = {
       ...RISK_VIEW.SEQUENCER_SELF_SEQUENCE(
         HARDCODED.OPTIMISM.SEQUENCING_WINDOW_SECONDS,
       ),
+      secondLine: formatDelay(HARDCODED.OPTIMISM.SEQUENCING_WINDOW_SECONDS),
     },
     proposerFailure: RISK_VIEW.PROPOSER_SELF_PROPOSE_ROOTS,
     validatedBy: RISK_VIEW.VALIDATED_BY_ETHEREUM,
@@ -514,7 +519,7 @@ export const base: Layer2 = {
     risks: [
       {
         category: 'Funds can be stolen if',
-        text: `a contract receives a malicious code upgrade. Upgrades must be approved by both the BaseMultisig1 and the OP FoundationMultisig_2. There is no delay on upgrades.`,
+        text: `a contract receives a malicious code upgrade. Upgrades must be approved by both the BaseMultisig1 and the OpFoundationOperationsSafe. There is no delay on upgrades.`,
       },
     ],
   },

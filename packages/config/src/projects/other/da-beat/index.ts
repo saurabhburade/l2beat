@@ -1,5 +1,7 @@
 import { avail } from './blockchain/avail/avail'
 import { celestia } from './blockchain/celestia/celestia'
+import { espressoDA } from './blockchain/espressoDA/espressoDA'
+import { ethereum } from './blockchain/ethereum/ethereum'
 import { memo } from './blockchain/memo/memo'
 import { near } from './blockchain/near/near'
 import { alephzeroDac } from './dac/alephzero'
@@ -8,19 +10,26 @@ import { apechainDac } from './dac/apechain'
 import { apexDac } from './dac/apex'
 import { arbitrumNovaDac } from './dac/arbitrumnova'
 import { astarZkEvmDac } from './dac/astarzkEVM'
+import { automataDA } from './dac/automataDA'
+import { blessnetDac } from './dac/blessnet'
+import { cyberDA } from './dac/cyberDA'
 import { degenDac } from './dac/degen'
 import { edgelessDac } from './dac/edgeless'
 import { eigenDA } from './dac/eigenDA'
 import { everclearDac } from './dac/everclear'
+import { fluenceDac } from './dac/fluence'
 import { fraxtalDA } from './dac/fraxtalDA'
+import { gmnetworkDA } from './dac/gmnetworkDA'
 import { gptProtocolDac } from './dac/gptProtocol'
 import { galxegravityDac } from './dac/gravity'
 import { hychainDac } from './dac/hychain'
 import { immutableXDac } from './dac/immutablex'
+import { inEVMDac } from './dac/inEVM'
 import { l3xDac } from './dac/l3x'
 import { mantleDA } from './dac/mantleDA'
 import { moltenDac } from './dac/molten'
 import { myriaDac } from './dac/myria'
+import { oevnetworkDac } from './dac/oevnetwork'
 import { paychainDac } from './dac/payChain'
 import { playblockDac } from './dac/playblock'
 import { popapexDac } from './dac/popapex'
@@ -47,52 +56,62 @@ import { DaLayer } from './types/DaLayer'
 
 export * from './types'
 
+export const ethereumDaLayer = ethereum
+
 export const daLayers: DaLayer[] = applyProcessor([
   // Permissioned DACs
-  galxegravityDac,
-  immutableXDac,
-  realDac,
-  apexDac,
-  arbitrumNovaDac,
-  reyaDac,
-  xlayerDac,
-  sorareDac,
-  zkfairDac,
-  siliconDac,
-  rhinofiDac,
-  sxnetworkDac,
-  winrDac,
-  astarZkEvmDac,
-  tanxDac,
-  hychainDac,
-  xchainDac,
   alienxDac,
-  sankoDac,
-  myriaDac,
   alephzeroDac,
+  apexDac,
+  apechainDac,
+  arbitrumNovaDac,
+  astarZkEvmDac,
+  blessnetDac,
+  cyberDA,
+  degenDac,
   edgelessDac,
   everclearDac,
-  paychainDac,
+  fluenceDac,
+  galxegravityDac,
   gptProtocolDac,
-  witnessDac,
-  apechainDac,
-  degenDac,
+  hychainDac,
+  immutableXDac,
+  inEVMDac,
   l3xDac,
+  mantleDA,
   moltenDac,
+  myriaDac,
+  oevnetworkDac,
+  paychainDac,
   playblockDac,
   popapexDac,
   popbossDac,
   rariDac,
+  realDac,
+  reyaDac,
+  rhinofiDac,
+  sankoDac,
+  siliconDac,
+  sorareDac,
+  sxnetworkDac,
+  tanxDac,
+  winrDac,
+  witnessDac,
   xaiDac,
+  xchainDac,
+  xlayerDac,
+  zkfairDac,
+  // DA Challenges
+  automataDA,
+  gmnetworkDA,
+  redstoneDA,
+  xterioDA,
   // DA Layers
-  // ethereum,
   avail,
   celestia,
   near,
   memo,
-  fraxtalDA,
-  mantleDA,
+  espressoDA,
   eigenDA,
-  redstoneDA,
-  xterioDA,
+  fraxtalDA,
 ])
