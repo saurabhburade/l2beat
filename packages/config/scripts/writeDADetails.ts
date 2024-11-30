@@ -61,7 +61,7 @@ const main = async () => {
     let chainDataExist;
     try {
       chainDataExist = fs.statSync(
-        path.join(__dirname, `../data/projects/layer2s/${da.id}.json`)
+        path.join(__dirname, `../data/projects/layer2s/${daLayer.id}.json`)
       );
     } catch (error) {
       console.log("STORE DATA NOT EXIST ::: ", daLayer?.id);
