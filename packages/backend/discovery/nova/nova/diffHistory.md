@@ -1,3 +1,173 @@
+Generated with discovered.json: 0x511db5a6d9878f35c1b27b2d07e564777657ca91
+
+# Diff at Fri, 29 Nov 2024 09:08:54 GMT:
+
+- author: sekuba (<29250140+sekuba@users.noreply.github.com>)
+- comparing to: main@c60f4ba86fcd7b86d6876d1634b83081095f33d7 block: 79888653
+- current block number: 79888653
+
+## Description
+
+Discovery rerun on the same block number with only config-related changes.
+
+## Config/verification related changes
+
+Following changes come from updates made to the config file,
+or/and contracts becoming verified, not from differences found during
+discovery. Values are for block 79888653 (main branch discovery), not current.
+
+```diff
+    contract L2GatewayRouter (0x21903d3F8176b1a0c17E953Cd896610Be9fFDFa8) {
+    +++ description: None
+      issuedPermissions.0.target:
+-        "0x86a02dD71363c440b21F4c0E5B2Ad01Ffe1A7482"
++        "0xf7951D92B0C345144506576eC13Ecf5103aC905a"
+      issuedPermissions.0.via.1:
++        {"address":"0xada790b026097BfB36a5ed696859b97a96CEd92C","delay":0}
+      issuedPermissions.0.via.0.address:
+-        "0xada790b026097BfB36a5ed696859b97a96CEd92C"
++        "0x86a02dD71363c440b21F4c0E5B2Ad01Ffe1A7482"
+    }
+```
+
+```diff
+    contract L2WethGateway (0x7626841cB6113412F9c88D3ADC720C9FAC88D9eD) {
+    +++ description: None
+      issuedPermissions.0.target:
+-        "0x86a02dD71363c440b21F4c0E5B2Ad01Ffe1A7482"
++        "0xf7951D92B0C345144506576eC13Ecf5103aC905a"
+      issuedPermissions.0.via.1:
++        {"address":"0xada790b026097BfB36a5ed696859b97a96CEd92C","delay":0}
+      issuedPermissions.0.via.0.address:
+-        "0xada790b026097BfB36a5ed696859b97a96CEd92C"
++        "0x86a02dD71363c440b21F4c0E5B2Ad01Ffe1A7482"
+    }
+```
+
+```diff
+    contract L2UpgradeExecutor (0x86a02dD71363c440b21F4c0E5B2Ad01Ffe1A7482) {
+    +++ description: Central contract defining the access control permissions for upgrading the system contract implementations.
+      issuedPermissions.0.target:
+-        "0x86a02dD71363c440b21F4c0E5B2Ad01Ffe1A7482"
++        "0xf7951D92B0C345144506576eC13Ecf5103aC905a"
+      issuedPermissions.0.via.1:
++        {"address":"0xf58eA15B20983116c21b05c876cc8e6CDAe5C2b9","delay":0}
+      issuedPermissions.0.via.0.address:
+-        "0xf58eA15B20983116c21b05c876cc8e6CDAe5C2b9"
++        "0x86a02dD71363c440b21F4c0E5B2Ad01Ffe1A7482"
+      receivedPermissions:
+-        [{"permission":"upgrade","target":"0x21903d3F8176b1a0c17E953Cd896610Be9fFDFa8","via":[{"address":"0xada790b026097BfB36a5ed696859b97a96CEd92C"}]},{"permission":"upgrade","target":"0x7626841cB6113412F9c88D3ADC720C9FAC88D9eD","via":[{"address":"0xada790b026097BfB36a5ed696859b97a96CEd92C"}]},{"permission":"upgrade","target":"0x86a02dD71363c440b21F4c0E5B2Ad01Ffe1A7482","via":[{"address":"0xf58eA15B20983116c21b05c876cc8e6CDAe5C2b9"}]},{"permission":"upgrade","target":"0xbf544970E6BD77b21C6492C281AB60d0770451F4","via":[{"address":"0xada790b026097BfB36a5ed696859b97a96CEd92C"}]},{"permission":"upgrade","target":"0xcF9bAb7e53DDe48A6DC4f286CB14e05298799257","via":[{"address":"0xada790b026097BfB36a5ed696859b97a96CEd92C"}]},{"permission":"upgrade","target":"0xf823C3cD3CeBE0a1fA952ba88Dc9EEf8e0Bf46AD","via":[{"address":"0xf58eA15B20983116c21b05c876cc8e6CDAe5C2b9"}]}]
+      values.executors:
++        ["0xf7951D92B0C345144506576eC13Ecf5103aC905a","0xc232ee726E3C51B86778BB4dBe61C52cC07A60F3"]
+      template:
++        "orbitstack/UpgradeExecutor"
+      displayName:
++        "UpgradeExecutor"
+      description:
++        "Central contract defining the access control permissions for upgrading the system contract implementations."
+    }
+```
+
+```diff
+    contract L2ARBGateway (0xbf544970E6BD77b21C6492C281AB60d0770451F4) {
+    +++ description: None
+      issuedPermissions.0.target:
+-        "0x86a02dD71363c440b21F4c0E5B2Ad01Ffe1A7482"
++        "0xf7951D92B0C345144506576eC13Ecf5103aC905a"
+      issuedPermissions.0.via.1:
++        {"address":"0xada790b026097BfB36a5ed696859b97a96CEd92C","delay":0}
+      issuedPermissions.0.via.0.address:
+-        "0xada790b026097BfB36a5ed696859b97a96CEd92C"
++        "0x86a02dD71363c440b21F4c0E5B2Ad01Ffe1A7482"
+    }
+```
+
+```diff
+    contract L2SecurityCouncilEmergency (0xc232ee726E3C51B86778BB4dBe61C52cC07A60F3) {
+    +++ description: None
+      directlyReceivedPermissions:
++        [{"permission":"act","target":"0x86a02dD71363c440b21F4c0E5B2Ad01Ffe1A7482"}]
+    }
+```
+
+```diff
+    contract L2ERC20Gateway (0xcF9bAb7e53DDe48A6DC4f286CB14e05298799257) {
+    +++ description: None
+      issuedPermissions.0.target:
+-        "0x86a02dD71363c440b21F4c0E5B2Ad01Ffe1A7482"
++        "0xf7951D92B0C345144506576eC13Ecf5103aC905a"
+      issuedPermissions.0.via.1:
++        {"address":"0xada790b026097BfB36a5ed696859b97a96CEd92C","delay":0}
+      issuedPermissions.0.via.0.address:
+-        "0xada790b026097BfB36a5ed696859b97a96CEd92C"
++        "0x86a02dD71363c440b21F4c0E5B2Ad01Ffe1A7482"
+    }
+```
+
+```diff
+    contract L2ArbitrumToken (0xf823C3cD3CeBE0a1fA952ba88Dc9EEf8e0Bf46AD) {
+    +++ description: None
+      issuedPermissions.0.target:
+-        "0x86a02dD71363c440b21F4c0E5B2Ad01Ffe1A7482"
++        "0xf7951D92B0C345144506576eC13Ecf5103aC905a"
+      issuedPermissions.0.via.1:
++        {"address":"0xf58eA15B20983116c21b05c876cc8e6CDAe5C2b9","delay":0}
+      issuedPermissions.0.via.0.address:
+-        "0xf58eA15B20983116c21b05c876cc8e6CDAe5C2b9"
++        "0x86a02dD71363c440b21F4c0E5B2Ad01Ffe1A7482"
+    }
+```
+
+Generated with discovered.json: 0x33afe03e3ef4ffd524b87d9fbf069b24fc3633b7
+
+# Diff at Thu, 21 Nov 2024 11:00:40 GMT:
+
+- author: sekuba (<29250140+sekuba@users.noreply.github.com>)
+- comparing to: main@de1745323b367dd0fbb18ad6c862147dd90e90b0 block: 79276078
+- current block number: 79888653
+
+## Description
+
+SC september cohort (6 members) are added/rotated.
+
+## Watched changes
+
+```diff
+    contract L2SecurityCouncilEmergency (0xc232ee726E3C51B86778BB4dBe61C52cC07A60F3) {
+    +++ description: None
+      values.$members.9:
+-        "0xf8e1492255d9428c2Fc20A98A1DeB1215C8ffEfd"
++        "0x3E286452b1C66abB08Eb5494c3894F40aB5a59AF"
+      values.$members.8:
+-        "0x3Bd8e2AC65ad6f0F094BA6766cBd9484AB49eF23"
++        "0x5DD2205C3aac13E592F0a3D85188c948D1781df1"
+      values.$members.7:
+-        "0xb07dc9103328A51128bC6Cc1049d1137035f5E28"
++        "0x5a09A94eE8198D3c474d723337aa58023810022C"
+      values.$members.6:
+-        "0x3E286452b1C66abB08Eb5494c3894F40aB5a59AF"
++        "0x70C006fC86A392c16D7E085cefc0Ad1FF7de6C75"
+      values.$members.5:
+-        "0xb71ca4FFbB7b58d75Ba29891ab45e9Dc12B444Ed"
++        "0x9316ca66f5f936E3239e4fD2AAAEA5C7b6f3C4cC"
+      values.$members.4:
+-        "0x8F10e3413586c4a8DCfcE19D009872b19e9cd8E3"
++        "0x882c6FCb3D358b9d70B97c6999159cea64168B6F"
+      values.$members.3:
+-        "0x5DD2205C3aac13E592F0a3D85188c948D1781df1"
++        "0xeA4A4A886aCA47DD0167B4aEE5B1345e18D20Ee5"
+      values.$members.2:
+-        "0x5a09A94eE8198D3c474d723337aa58023810022C"
++        "0x1716C1C037e4968D5A06d4d080904F9B7a6508f2"
+      values.$members.1:
+-        "0x70C006fC86A392c16D7E085cefc0Ad1FF7de6C75"
++        "0x33ddb82e68940f0e4C1050885BcE8faF5Ddd1b93"
+      values.$members.0:
+-        "0x9316ca66f5f936E3239e4fD2AAAEA5C7b6f3C4cC"
++        "0xe2e9d5B97d8C0457B1cf80BC93802bce4DF03e33"
+    }
+```
+
 Generated with discovered.json: 0xffa05eb2c6df489485d9307a65f2cec154152be5
 
 # Diff at Fri, 01 Nov 2024 15:12:36 GMT:

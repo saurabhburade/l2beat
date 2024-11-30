@@ -3,7 +3,7 @@ import { DaLayer } from '../types/DaLayer'
 import { fraxtalDABridge } from './bridges/fraxtalDABridge'
 
 export const fraxtalDA: DaLayer = {
-  id: 'dac',
+  id: 'fraxtal-da',
   type: 'DaLayer',
   kind: 'No DAC',
   systemCategory: 'custom',
@@ -13,16 +13,13 @@ export const fraxtalDA: DaLayer = {
     description:
       'FraxtalDA is a custom data availability solution built by the Fraxtal team.',
     links: {
-      websites: ['https://frax.com/'],
-      apps: ['https://app.frax.finance/'],
-      documentation: ['https://docs.frax.com/'],
-      explorers: ['https://fraxscan.com/'],
-      repositories: ['https://github.com/FraxFinance'],
-      socialMedia: [
-        'https://discord.com/invite/UJVtDTFRaA',
-        'https://twitter.com/fraxfinance',
-        'https://t.me/fraxfinance',
-      ],
+      // was duplicated
+      websites: [],
+      apps: [],
+      documentation: [],
+      explorers: [],
+      repositories: [],
+      socialMedia: [],
     },
   },
   technology: {

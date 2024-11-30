@@ -33,6 +33,7 @@ import {
   addSentimentToDataAvailability,
 } from '../../../common'
 import { ChainConfig } from '../../../common/ChainConfig'
+import { formatExecutionDelay } from '../../../common/formatDelays'
 import { ProjectDiscovery } from '../../../discovery/ProjectDiscovery'
 import { BadgeId } from '../../badges'
 import { PROOFS } from '../../other/zk-catalog/common/proofSystems'
@@ -194,35 +195,35 @@ export function zkStackL2(templateVars: ZkStackConfigCommon): Layer2 {
     'EXTEND_LEGAL_VETO_THRESHOLD',
   )
   const protocolStartProposalThresholdM =
-    discovery_ZKstackGovL2.getContractValue<number>(
+    discovery_ZKstackGovL2.getContractValueBigInt(
       'ZkProtocolGovernor',
       'proposalThreshold',
-    ) / 1000000000000000000000000 // result: M of tokens
+    ) / 1000000000000000000000000n // result: M of tokens
   const tokenStartProposalThresholdM =
-    discovery_ZKstackGovL2.getContractValue<number>(
+    discovery_ZKstackGovL2.getContractValueBigInt(
       'ZkTokenGovernor',
       'proposalThreshold',
-    ) / 1000000000000000000000000 // result: M of tokens
+    ) / 1000000000000000000000000n // result: M of tokens
   const govOpsStartProposalThresholdM =
-    discovery_ZKstackGovL2.getContractValue<number>(
+    discovery_ZKstackGovL2.getContractValueBigInt(
       'ZkGovOpsGovernor',
       'proposalThreshold',
-    ) / 1000000000000000000000000 // result: M of tokens
+    ) / 1000000000000000000000000n // result: M of tokens
   const protocolQuorumM =
-    discovery_ZKstackGovL2.getContractValue<number>(
+    discovery_ZKstackGovL2.getContractValueBigInt(
       'ZkProtocolGovernor',
       'currentQuorum',
-    ) / 1000000000000000000000000 // result: M of tokens
+    ) / 1000000000000000000000000n // result: M of tokens
   const tokenQuorumM =
-    discovery_ZKstackGovL2.getContractValue<number>(
+    discovery_ZKstackGovL2.getContractValueBigInt(
       'ZkProtocolGovernor',
       'currentQuorum',
-    ) / 1000000000000000000000000 // result: M of tokens
+    ) / 1000000000000000000000000n // result: M of tokens
   const govOpsQuorumM =
-    discovery_ZKstackGovL2.getContractValue<number>(
+    discovery_ZKstackGovL2.getContractValueBigInt(
       'ZkProtocolGovernor',
       'currentQuorum',
-    ) / 1000000000000000000000000 // result: M of tokens
+    ) / 1000000000000000000000000n // result: M of tokens
   const scThresholdString = `${scMainThreshold} / ${scMemberCount}`
   const guardiansThresholdString = `${guardiansMainThreshold} / ${guardiansMemberCount}`
 
@@ -323,7 +324,7 @@ export function zkStackL2(templateVars: ZkStackConfigCommon): Layer2 {
       finality: daProvider !== undefined ? undefined : templateVars.finality,
     },
     chainConfig: templateVars.chainConfig,
-    dataAvailability:
+    dataAvailability: [
       daProvider !== undefined
         ? addSentimentToDataAvailability({
             layers: daProvider.fallback
@@ -337,9 +338,11 @@ export function zkStackL2(templateVars: ZkStackConfigCommon): Layer2 {
             bridge: DA_BRIDGES.ENSHRINED,
             mode: DA_MODES.STATE_DIFFS_COMPRESSED,
           }),
+    ],
     riskView: {
       stateValidation: {
         ...RISK_VIEW.STATE_ZKP_ST_SN_WRAP,
+        secondLine: formatExecutionDelay(executionDelayS),
         sources: [
           {
             contract: 'ValidatorTimelock',
@@ -641,6 +644,7 @@ export function zkStackL2(templateVars: ZkStackConfigCommon): Layer2 {
           templateVars.diamondContract.name,
           'validators',
         ),
+        fromRole: true,
         description: `Addresses permissioned to call the functions to propose, execute and revert L2 batches in the ${templateVars.display.name} diamond. Usually these are addresses of proxying ValidatorTimelock contracts.`,
       },
       {
@@ -648,6 +652,7 @@ export function zkStackL2(templateVars: ZkStackConfigCommon): Layer2 {
         accounts: validators().map((v) =>
           discovery.formatPermissionedAccount(v),
         ),
+        fromRole: true,
         description:
           'Actors that are allowed to propose, execute and revert L2 batches on L1 through the ValidatorTimelock.',
       },

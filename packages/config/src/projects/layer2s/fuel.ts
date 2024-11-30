@@ -15,6 +15,7 @@ import {
   TECHNOLOGY_DATA_AVAILABILITY,
   addSentimentToDataAvailability,
 } from '../../common'
+import { formatChallengePeriod } from '../../common/formatDelays'
 import { RISK_VIEW } from '../../common/riskView'
 import { ProjectDiscovery } from '../../discovery/ProjectDiscovery'
 import { Badge } from '../badges'
@@ -42,11 +43,13 @@ const challengePeriod = discovery.getContractValue<number>(
 export const fuel: Layer2 = {
   id: ProjectId('fuel'),
   createdAt: new UnixTime(1729589660), // 2024-10-22T09:34:20Z
-  dataAvailability: addSentimentToDataAvailability({
-    layers: [DA_LAYERS.ETH_BLOBS],
-    bridge: DA_BRIDGES.ENSHRINED,
-    mode: DA_MODES.TRANSACTION_DATA_COMPRESSED,
-  }),
+  dataAvailability: [
+    addSentimentToDataAvailability({
+      layers: [DA_LAYERS.ETH_BLOBS],
+      bridge: DA_BRIDGES.ENSHRINED,
+      mode: DA_MODES.TRANSACTION_DATA_COMPRESSED,
+    }),
+  ],
   display: {
     name: 'Fuel Ignition',
     slug: 'fuel',
@@ -133,7 +136,7 @@ export const fuel: Layer2 = {
     destinationToken: RISK_VIEW.NATIVE_AND_CANONICAL(),
     stateValidation: {
       ...RISK_VIEW.STATE_NONE,
-      secondLine: `${formatSeconds(challengePeriod)} challenge period`,
+      secondLine: formatChallengePeriod(challengePeriod),
     },
     dataAvailability: RISK_VIEW.DATA_ON_CHAIN,
     exitWindow: RISK_VIEW.EXIT_WINDOW(0, challengePeriod),

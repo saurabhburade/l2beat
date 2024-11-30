@@ -148,7 +148,6 @@ export class EtherscanClient implements IEtherscanClient {
         remappings = decodedSource.remappings
       } catch (e) {
         console.error(e)
-        console.log(source)
       }
     }
 
@@ -307,7 +306,7 @@ export class EtherscanClient implements IEtherscanClient {
     if (!httpResponse.ok) {
       this.recordError(module, action, timeMs, text)
       throw new Error(
-        `Server responded with non-2XX result: ${httpResponse.status} ${httpResponse.statusText}`,
+        `Server responded with non-2XX result: ${httpResponse.status}`,
       )
     }
 

@@ -18,7 +18,10 @@ export class ArbitrumT2IAnalyzer extends BaseAnalyzer {
     projectId: ProjectId,
   ) {
     super(provider, db, projectId)
-    this.logger = logger.for(this).tag(projectId.toString())
+    this.logger = logger.for(this).tag({
+      tag: projectId,
+      project: projectId,
+    })
   }
 
   override getTrackedTxSubtype(): TrackedTxsConfigSubtype {
@@ -32,6 +35,9 @@ export class ArbitrumT2IAnalyzer extends BaseAnalyzer {
     this.logger.debug('Getting finality', { transaction })
     // get blobs relevant to the transaction
     const { blobs } = await this.blobClient.getRelevantBlobs(transaction.txHash)
+    if (blobs.length === 0) {
+      return []
+    }
 
     const segments = getSegments(blobs)
     // https://linear.app/l2beat/issue/L2B-4752/refactor-finalityindexer-logic-to-allow-analyzers-different
