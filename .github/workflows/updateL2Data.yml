@@ -34,7 +34,8 @@ jobs:
 
 
       - name: Fetch and save L2s data
-        run:  cd packages/config && pnpm install && pnpm layer2-details
+        run:  cd packages/config && pnpm install && pnpm layer2-details && pnpm DA-details
+
 
 
       - name: Create Pull Request
