@@ -4,17 +4,18 @@ import {
   badgesCompareFn,
   layer2s,
 } from '@l2beat/config'
+import { getContractsVerificationStatuses } from '@l2beat/config'
+import { getManuallyVerifiedContracts } from '@l2beat/config'
+import { getProjectsVerificationStatuses } from '@l2beat/config'
 import { compact } from 'lodash'
 import { env } from '~/env'
 import { getProjectLinks } from '~/utils/project/get-project-links'
 import { getUnderReviewStatus } from '~/utils/project/under-review'
 import { getProjectsChangeReport } from '../../projects-change-report/get-projects-change-report'
-import { getContractsVerificationStatuses } from '../../verification-status/get-contracts-verification-statuses'
-import { getManuallyVerifiedContracts } from '../../verification-status/get-manually-verified-contracts'
-import { getProjectsVerificationStatuses } from '../../verification-status/get-projects-verification-statuses'
 import { getActivityProjectStats } from '../activity/get-activity-project-stats'
 import { getTvlProjectStats } from '../tvl/get-tvl-project-stats'
 import { getAssociatedTokenWarning } from '../tvl/utils/get-associated-token-warning'
+import { getCountdowns } from '../utils/get-countdowns'
 import { getL2ProjectDetails } from './utils/get-l2-project-details'
 import { getL3ProjectDetails } from './utils/get-l3-project-details'
 import { getScalingRosetteValues } from './utils/get-scaling-rosette-values'
@@ -27,24 +28,19 @@ export type ScalingProjectEntry = Awaited<
 
 export async function getScalingProjectEntry(project: ScalingProject) {
   const [
-    projectsVerificationStatuses,
     contractsVerificationStatuses,
     manuallyVerifiedContracts,
     projectsChangeReport,
     header,
   ] = await Promise.all([
-    getProjectsVerificationStatuses(),
     getContractsVerificationStatuses(project),
     getManuallyVerifiedContracts(project),
     getProjectsChangeReport(),
     getHeader(project),
   ])
 
-  const isVerified = !!projectsVerificationStatuses[project.id]
-  const hasImplementationChanged =
-    projectsChangeReport.hasImplementationChanged(project.id)
-  const hasHighSeverityFieldChanged =
-    projectsChangeReport.hasHighSeverityFieldChanged(project.id)
+  const isVerified = getProjectsVerificationStatuses(project)
+  const changes = projectsChangeReport.getChanges(project.id)
 
   const common = {
     type: project.type,
@@ -52,12 +48,12 @@ export async function getScalingProjectEntry(project: ScalingProject) {
     slug: project.display.slug,
     underReviewStatus: getUnderReviewStatus({
       isUnderReview: !!project.isUnderReview,
-      hasImplementationChanged,
-      hasHighSeverityFieldChanged,
+      ...changes,
     }),
     isArchived: !!project.isArchived,
     isUpcoming: !!project.isUpcoming,
     header,
+    countdowns: getCountdowns(project),
   }
 
   const rosetteValues = getScalingRosetteValues(project.riskView)
@@ -89,7 +85,8 @@ export async function getScalingProjectEntry(project: ScalingProject) {
   const stackedRosetteValues = project.stackedRiskView
     ? getScalingRosetteValues(project.stackedRiskView)
     : undefined
-  const isHostChainVerified = !!projectsVerificationStatuses[project.hostChain]
+  const isHostChainVerified =
+    hostChain === undefined ? false : getProjectsVerificationStatuses(hostChain)
 
   const projectDetails = await getL3ProjectDetails({
     project,
@@ -128,7 +125,7 @@ async function getHeader(project: ScalingProject) {
     description: project.display.description,
     warning: project.display.headerWarning,
     category: project.display.category,
-    isOther: project.display.isOther,
+    isOther: !!project.display.reasonsForBeingOther,
     purposes: project.display.purposes,
     activity: activityProjectStats,
     rosetteValues: getScalingRosetteValues(project.riskView),
