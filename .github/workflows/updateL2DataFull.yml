@@ -25,13 +25,13 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --no-frozen-lockfile
 
       - name: Build packages
         run: pnpm build:dependencies
 
       - name: Fetch and save L2s data
-        run: cd packages/config && pnpm install && pnpm layer2-details-full&& pnpm DA-details-full
+        run: cd packages/config && pnpm install --no-frozen-lockfile && pnpm layer2-details-full&& pnpm DA-details-full
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v3
