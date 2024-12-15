@@ -27,14 +27,14 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --no-frozen-lockfile
 
       - name: Build packages
         run: pnpm build:dependencies
 
 
       - name: Fetch and save L2s data
-        run:  cd packages/config && pnpm install && pnpm layer2-details && pnpm DA-details
+        run:  cd packages/config && pnpm install --no-frozen-lockfile && pnpm layer2-details && pnpm DA-details
 
 
 
