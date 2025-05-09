@@ -1,66 +1,32 @@
-import { daLayers } from '@l2beat/config'
-import { type Bridge, type Layer2, type Layer3 } from '@l2beat/config'
-import { compact } from 'lodash'
-import { getTechnologySectionProps } from './get-technology-section-props'
+import { type Project } from '@l2beat/config'
+import compact from 'lodash/compact'
 import { makeTechnologyChoice } from './make-technology-section'
 
-export function getScalingTechnologySection(project: Layer2 | Layer3) {
-  const relatedDaProjects = daLayers.filter(
-    (layer) =>
-      layer.bridges.some((bridge) =>
-        bridge.usedIn.some((usedIn) => usedIn.id === project.id),
-      ) && layer.bridges.length > 0,
-  )
-
+export function getBridgeTechnologySection(
+  project: Project<'statuses' | 'bridgeTechnology'>,
+) {
   const items = compact([
-    project.technology.stateCorrectness &&
-      makeTechnologyChoice(
-        'state-correctness',
-        project.technology.stateCorrectness,
-      ),
-    project.technology.newCryptography &&
-      makeTechnologyChoice(
-        'new-cryptography',
-        project.technology.newCryptography,
-      ),
-    project.technology.dataAvailability &&
-      makeTechnologyChoice(
-        'data-availability',
-        project.technology.dataAvailability,
-        {
-          relatedProjectBanner:
-            relatedDaProjects.length < 2 && relatedDaProjects[0]
-              ? {
-                  text: 'Learn more about the DA layer here:',
-                  project: {
-                    name: relatedDaProjects[0].display.name,
-                    slug: `${relatedDaProjects[0].display.slug}/${relatedDaProjects[0].bridges[0]?.display.slug}`,
-                    type: 'data-availability',
-                  },
-                }
-              : undefined,
-        },
-      ),
-  ])
-
-  return getTechnologySectionProps(project, items)
-}
-
-export function getBridgeTechnologySection(project: Bridge) {
-  const items = compact([
-    project.technology.principleOfOperation &&
+    project.bridgeTechnology.principleOfOperation &&
       makeTechnologyChoice(
         'principle-of-operation',
-        project.technology.principleOfOperation,
+        project.bridgeTechnology.principleOfOperation,
       ),
-    project.technology.validation &&
-      makeTechnologyChoice('validation', project.technology.validation),
-    project.technology.destinationToken &&
+    project.bridgeTechnology.validation &&
+      makeTechnologyChoice('validation', project.bridgeTechnology.validation),
+    project.bridgeTechnology.destinationToken &&
       makeTechnologyChoice(
         'destination-token',
-        project.technology.destinationToken,
+        project.bridgeTechnology.destinationToken,
       ),
   ])
 
-  return getTechnologySectionProps(project, items)
+  if (items.length === 0) {
+    return undefined
+  }
+
+  return {
+    items,
+    isUnderReview:
+      items.every((x) => x.isUnderReview) || project.statuses.isUnderReview,
+  }
 }

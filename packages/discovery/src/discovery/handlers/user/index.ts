@@ -1,6 +1,6 @@
 import * as z from 'zod'
 
-import { Handler } from '../Handler'
+import type { Handler } from '../Handler'
 import {
   AccessControlHandler,
   AccessControlHandlerDefinition,
@@ -21,18 +21,6 @@ import {
   ArbitrumSequencerVersionDefinition,
   ArbitrumSequencerVersionHandler,
 } from './ArbitrumSequencerVersionHandler'
-import {
-  ArrayFromOneEventHandler,
-  ArrayFromOneEventHandlerDefinition,
-} from './ArrayFromOneEventHandler'
-import {
-  ArrayFromOneEventWithArgHandler,
-  ArrayFromOneEventWithArgHandlerDefinition,
-} from './ArrayFromOneEventWithArgHandler'
-import {
-  ArrayFromTwoEventsHandler,
-  ArrayFromTwoEventsHandlerDefinition,
-} from './ArrayFromTwoEventsHandler'
 import { ArrayHandler, ArrayHandlerDefinition } from './ArrayHandler'
 import { CallHandler, CallHandlerDefinition } from './CallHandler'
 import {
@@ -51,7 +39,12 @@ import {
   EventCountHandler,
   EventCountHandlerDefinition,
 } from './EventCountHandler'
+import { EventHandler, EventHandlerDefinition } from './EventHandler'
 import { HardCodedDefinition, HardCodedHandler } from './HardcodedHandler'
+import {
+  KintoAccessControlHandler,
+  KintoAccessControlHandlerDefinition,
+} from './KintoAccessControlHandler'
 import {
   LayerZeroMultisigHandler,
   LayerZeroMultisigHandlerDefinition,
@@ -60,7 +53,10 @@ import {
   LineaRolesModuleHandler,
   LineaRolesModuleHandlerDefinition,
 } from './LineaRolesModuleHandler'
-import { OpStackDAHandler, OpStackDAHandlerDefinition } from './OpDAHandler'
+import {
+  OpStackDAHandler,
+  OpStackDAHandlerDefinition,
+} from './OpDaHandler/OpDAHandler'
 import {
   OpStackSequencerInboxHandler,
   OpStackSequencerInboxHandlerDefinition,
@@ -85,14 +81,6 @@ import {
   StarkWareNamedStorageHandler,
   StarkWareNamedStorageHandlerDefinition,
 } from './StarkWareNamedStorageHandler'
-import {
-  StateFromEventDefinition,
-  StateFromEventHandler,
-} from './StateFromEventHandler'
-import {
-  StateFromEventTupleDefinition,
-  StateFromEventTupleHandler,
-} from './StateFromEventTupleHandler'
 import { StorageHandler, StorageHandlerDefinition } from './StorageHandler'
 import {
   ZKsyncEraScheduledTransactionHandler,
@@ -110,17 +98,14 @@ export const UserHandlerDefinition = z.union([
   DynamicArrayHandlerDefinition,
   ArrayHandlerDefinition,
   CallHandlerDefinition,
+  EventHandlerDefinition,
   StarkWareNamedStorageHandlerDefinition,
   AccessControlHandlerDefinition,
   ScrollAccessControlHandlerDefinition,
+  KintoAccessControlHandlerDefinition,
   LineaRolesModuleHandlerDefinition,
-  ArrayFromOneEventHandlerDefinition,
-  ArrayFromOneEventWithArgHandlerDefinition,
-  ArrayFromTwoEventsHandlerDefinition,
   ConstructorArgsDefinition,
   EventCountHandlerDefinition,
-  StateFromEventDefinition,
-  StateFromEventTupleDefinition,
   HardCodedDefinition,
   StarkWareGovernanceHandlerDefinition,
   LayerZeroMultisigHandlerDefinition,
@@ -151,20 +136,18 @@ export function getUserHandler(
       return new ArrayHandler(field, definition, abi)
     case 'call':
       return new CallHandler(field, definition, abi)
+    case 'event':
+      return new EventHandler(field, definition, abi)
     case 'starkWareNamedStorage':
       return new StarkWareNamedStorageHandler(field, definition)
     case 'accessControl':
       return new AccessControlHandler(field, definition, abi)
+    case 'kintoAccessControl':
+      return new KintoAccessControlHandler(field, definition, abi)
     case 'scrollAccessControl':
       return new ScrollAccessControlHandler(field, definition, abi)
     case 'lineaRolesModule':
       return new LineaRolesModuleHandler(field, definition, abi)
-    case 'arrayFromOneEvent':
-      return new ArrayFromOneEventHandler(field, definition, abi)
-    case 'arrayFromOneEventWithArg':
-      return new ArrayFromOneEventWithArgHandler(field, definition, abi)
-    case 'arrayFromTwoEvents':
-      return new ArrayFromTwoEventsHandler(field, definition, abi)
     case 'constructorArgs':
       return new ConstructorArgsHandler(field, definition, abi)
     case 'eventCount':
@@ -173,10 +156,6 @@ export function getUserHandler(
       return new HardCodedHandler(field, definition)
     case 'starkWareGovernance':
       return new StarkWareGovernanceHandler(field, definition, abi)
-    case 'stateFromEvent':
-      return new StateFromEventHandler(field, definition, abi)
-    case 'stateFromEventTuple':
-      return new StateFromEventTupleHandler(field, definition, abi)
     case 'layerZeroMultisig':
       return new LayerZeroMultisigHandler(field, abi)
     case 'arbitrumActors':

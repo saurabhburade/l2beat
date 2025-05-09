@@ -1,5 +1,6 @@
 import { ProjectId, UnixTime } from '@l2beat/shared-pure'
 import { unstable_cache as cache } from 'next/cache'
+import { z } from 'zod'
 import { MIN_TIMESTAMPS } from '~/consts/min-timestamps'
 import { env } from '~/env'
 import { getDb } from '~/server/database'
@@ -8,12 +9,19 @@ import { generateTimestamps } from '../../utils/generate-timestamps'
 import { aggregateActivityRecords } from './utils/aggregate-activity-records'
 import { getActivityProjects } from './utils/get-activity-projects'
 import { getFullySyncedActivityRange } from './utils/get-fully-synced-activity-range'
-import { getSyncStatus } from './utils/get-sync-status'
+import { getActivitySyncWarning } from './utils/is-activity-synced'
 import {
-  type ActivityProjectFilter,
+  ActivityProjectFilter,
   createActivityProjectsFilter,
 } from './utils/project-filter-utils'
-import { type ActivityTimeRange } from './utils/range'
+import { ActivityTimeRange } from './utils/range'
+
+export type ActivityChartParams = z.infer<typeof ActivityChartParams>
+export const ActivityChartParams = z.object({
+  filter: ActivityProjectFilter,
+  range: ActivityTimeRange,
+  previewRecategorisation: z.boolean().default(false),
+})
 
 /**
  * A function that computes values for chart data of the activity over time.
@@ -33,10 +41,10 @@ export type ActivityChartData = Awaited<
 >
 
 export const getCachedActivityChartData = cache(
-  async (filter: ActivityProjectFilter, range: ActivityTimeRange) => {
+  async ({ filter, range, previewRecategorisation }: ActivityChartParams) => {
     const db = getDb()
-    const projects = getActivityProjects()
-      .filter(createActivityProjectsFilter(filter))
+    const projects = (await getActivityProjects())
+      .filter(createActivityProjectsFilter(filter, previewRecategorisation))
       .map((p) => p.id)
       .concat(ProjectId.ETHEREUM)
     const isSingleProject = projects.length === 2 // Ethereum + 1 other project
@@ -47,34 +55,36 @@ export const getCachedActivityChartData = cache(
     )
 
     // By default, we assume we're always synced...
-    let syncStatus = getSyncStatus(adjustedRange[1])
+    let syncedUntil = adjustedRange[1]
+    let syncWarning = getActivitySyncWarning(syncedUntil)
 
     // ...but if we are looking at a single project, we check the last day we have data for,
     // and use that as the cutoff.
     if (isSingleProject) {
       const lastProjectEntry = entries.findLast((entry) => entry.projectId)
       if (lastProjectEntry) {
-        syncStatus = getSyncStatus(lastProjectEntry.timestamp)
+        syncedUntil = lastProjectEntry.timestamp
+        syncWarning = getActivitySyncWarning(syncedUntil)
         adjustedRange = [adjustedRange[0], lastProjectEntry.timestamp]
       }
     }
 
     const aggregatedEntries = aggregateActivityRecords(entries)
     if (!aggregatedEntries || Object.values(aggregatedEntries).length === 0) {
-      return { data: [], syncStatus }
+      return { data: [], syncWarning, syncedUntil: syncedUntil }
     }
 
     const startTimestamp = Math.min(
       ...Object.keys(aggregatedEntries).map(Number),
     )
     const timestamps = generateTimestamps(
-      [new UnixTime(startTimestamp), adjustedRange[1]],
+      [UnixTime(startTimestamp), adjustedRange[1]],
       'daily',
     )
 
     const data: [number, number, number, number, number][] = timestamps.map(
       (timestamp) => {
-        const entry = aggregatedEntries[timestamp.toNumber()]
+        const entry = aggregatedEntries[timestamp]
         if (!entry) {
           return [+timestamp, 0, 0, 0, 0]
         }
@@ -89,21 +99,21 @@ export const getCachedActivityChartData = cache(
     )
     return {
       data,
-      syncStatus,
+      syncWarning,
+      syncedUntil: syncedUntil,
     }
   },
   ['activity-chart-data'],
   {
-    tags: ['activity'],
-    revalidate: UnixTime.DAY,
+    tags: ['hourly-data'],
+    revalidate: UnixTime.HOUR,
   },
 )
 
-function getMockActivityChart(
-  _: ActivityProjectFilter,
-  timeRange: ActivityTimeRange,
-): ActivityChartData {
-  const [from, to] = getRangeWithMax(timeRange, 'daily')
+function getMockActivityChart({
+  range,
+}: ActivityChartParams): ActivityChartData {
+  const [from, to] = getRangeWithMax(range, 'daily')
   const adjustedRange: [UnixTime, UnixTime] = [
     from ?? MIN_TIMESTAMPS.activity,
     to,
@@ -112,6 +122,7 @@ function getMockActivityChart(
 
   return {
     data: timestamps.map((timestamp) => [+timestamp, 15, 11, 16, 12]),
-    syncStatus: getSyncStatus(adjustedRange[1]),
+    syncWarning: getActivitySyncWarning(adjustedRange[1]),
+    syncedUntil: adjustedRange[1],
   }
 }

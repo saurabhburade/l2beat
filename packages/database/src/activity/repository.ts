@@ -1,6 +1,6 @@
-import { ProjectId, UnixTime } from '@l2beat/shared-pure'
+import { type ProjectId, UnixTime } from '@l2beat/shared-pure'
 import { BaseRepository } from '../BaseRepository'
-import { ActivityRecord, toRecord, toRow } from './entity'
+import { type ActivityRecord, toRecord, toRow } from './entity'
 import { selectActivity } from './select'
 
 export class ActivityRepository extends BaseRepository {
@@ -42,7 +42,7 @@ export class ActivityRepository extends BaseRepository {
       .where((eb) =>
         eb.and([
           eb('projectId', '=', projectId.toString()),
-          eb('timestamp', '>=', fromInclusive.toDate()),
+          eb('timestamp', '>=', UnixTime.toDate(fromInclusive)),
         ]),
       )
       .executeTakeFirst()
@@ -63,8 +63,8 @@ export class ActivityRepository extends BaseRepository {
       .selectFrom('Activity')
       .select(selectActivity)
       .where('projectId', '=', projectId.toString())
-      .where('timestamp', '>=', from.toDate())
-      .where('timestamp', '<=', to.toDate())
+      .where('timestamp', '>=', UnixTime.toDate(from))
+      .where('timestamp', '<=', UnixTime.toDate(to))
       .orderBy('timestamp', 'asc')
       .execute()
     return rows.map(toRecord)
@@ -83,8 +83,8 @@ export class ActivityRepository extends BaseRepository {
         'in',
         projectIds.map((p) => p.toString()),
       )
-      .where('timestamp', '>=', from.toDate())
-      .where('timestamp', '<=', to.toDate())
+      .where('timestamp', '>=', UnixTime.toDate(from))
+      .where('timestamp', '<=', UnixTime.toDate(to))
       .orderBy('timestamp', 'asc')
       .execute()
     return rows.map(toRecord)
@@ -146,31 +146,26 @@ export class ActivityRepository extends BaseRepository {
     )
   }
 
-  async getSummedCountForProjectsAndTimeRange(
-    projectIds: ProjectId[],
-    timeRange: [UnixTime, UnixTime],
-  ): Promise<
-    Omit<ActivityRecord, 'timestamp' | 'start' | 'end' | 'uopsCount'>[]
-  > {
+  async getSummedUopsCountForProjectAndTimeRange(
+    projectId: ProjectId,
+    timeRange: [UnixTime | null, UnixTime],
+  ): Promise<number | undefined> {
     const [from, to] = timeRange
-    const rows = await this.db
+    let query = this.db
       .selectFrom('Activity')
-      .select(['projectId'])
-      .select((eb) => eb.fn.sum('count').as('count'))
-      .where(
-        'projectId',
-        'in',
-        projectIds.map((p) => p.toString()),
+      .select((eb) =>
+        eb.fn
+          .sum(eb.fn.coalesce('Activity.uopsCount', 'Activity.count'))
+          .as('count'),
       )
-      .where('timestamp', '>=', from.toDate())
-      .where('timestamp', '<', to.toDate())
-      .groupBy('projectId')
-      .execute()
+      .where('projectId', '=', projectId.toString())
+      .where('timestamp', '<=', UnixTime.toDate(to))
 
-    return rows.map((row) => ({
-      projectId: ProjectId(row.projectId),
-      count: Number(row.count),
-    }))
+    if (from) {
+      query = query.where('timestamp', '>=', UnixTime.toDate(from))
+    }
+    const row = await query.executeTakeFirst()
+    return row ? Number(row.count) : undefined
   }
 
   /**
@@ -238,5 +233,16 @@ export class ActivityRepository extends BaseRepository {
       count: Number(row.count),
       timestamp: UnixTime.fromDate(row.timestamp),
     }))
+  }
+
+  async getLatestProcessedBlock(projectId: ProjectId) {
+    const latestRecord = await this.db
+      .selectFrom('Activity')
+      .select(selectActivity)
+      .where('projectId', '=', projectId)
+      .orderBy('timestamp', 'desc')
+      .executeTakeFirst()
+
+    return latestRecord?.end
   }
 }

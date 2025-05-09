@@ -1,6 +1,6 @@
 'use client'
+import type { CSSProperties } from 'react'
 import {
-  type CSSProperties,
   Fragment,
   useCallback,
   useEffect,
@@ -19,18 +19,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '~/components/core/select'
-import { useRouterWithProgressBar } from '~/components/progress-bar'
+import { useRouterWithProgressBar } from '~/components/navigation-progress-bar'
 import { useCurrentSection } from '~/hooks/use-current-section'
 import { SummaryIcon } from '~/icons/summary'
 import { cn } from '~/utils/cn'
 import { scrollVerticallyToItem } from '~/utils/scroll-to-item'
 import { UnderReviewCallout } from '../under-review-callout'
-import { type ProjectNavigationSection } from './types'
+import type { ProjectNavigationSection } from './types'
 
 interface Project {
   title: string
   isUnderReview?: boolean
   slug: string
+  icon: string
 }
 interface ProjectNavigationProps {
   project: Project
@@ -79,7 +80,7 @@ export function DesktopProjectNavigation({
               <Image
                 width={32}
                 height={32}
-                src={`/icons/${project.slug}.png`}
+                src={project.icon}
                 alt={`${project.title} logo`}
               />
             )}
@@ -90,7 +91,7 @@ export function DesktopProjectNavigation({
           {project.isUnderReview && (
             <UnderReviewCallout small className="mt-2" />
           )}
-          {projectVariants && (
+          {projectVariants && projectVariants.length > 1 && (
             <div className="mt-2 pl-12">
               <Select
                 defaultValue={
@@ -210,7 +211,7 @@ function NavigationListIndex(props: { index: number; selected: boolean }) {
         'flex size-6 shrink-0 items-center justify-center rounded-lg text-center text-xs font-bold',
         props.selected
           ? 'bg-gradient-to-r from-purple-100 to-pink-100 text-white'
-          : 'bg-gray-100 dark:bg-neutral-700',
+          : 'bg-surface-tertiary',
       )}
     >
       <span>{props.index}</span>

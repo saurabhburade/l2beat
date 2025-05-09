@@ -1,17 +1,11 @@
-import { type Metadata } from 'next'
-import PlausibleProvider from 'next-plausible'
-import { ThemeProvider } from 'next-themes'
-import { SearchBarContextProvider } from '~/components/search-bar/search-bar-context'
+import type { Metadata } from 'next'
 import { getSearchBarProjects } from '~/components/search-bar/search-bar-projects'
 import { getCollection } from '~/content/get-collection'
-import { env } from '~/env'
-import { TRPCReactProvider } from '~/trpc/react'
 import { getDefaultMetadata } from '~/utils/metadata'
-import { TooltipProvider } from '../components/core/tooltip/tooltip'
-import { GlossaryContextProvider } from '../components/markdown/glossary-context'
-import { ProgressBar } from '../components/progress-bar'
+import { NavigationProgressBar } from '../components/navigation-progress-bar'
 import { roboto } from '../fonts'
 import '../styles/globals.css'
+import { AppLayout } from './_layout'
 
 export const metadata: Metadata = getDefaultMetadata()
 
@@ -40,32 +34,16 @@ export default async function RootLayout({
         />
       </head>
       <body className={roboto.variable}>
-        <PlausibleProvider
-          domain={env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN}
-          enabled={env.NEXT_PUBLIC_PLAUSIBLE_ENABLED}
+        <AppLayout
+          terms={terms.map((term) => ({
+            id: term.id,
+            matches: [term.data.term, ...(term.data.match ?? [])],
+          }))}
+          searchBarProjects={searchBarProjects}
         >
-          <TRPCReactProvider>
-            <ThemeProvider
-              attribute="class"
-              storageKey="l2beat-theme"
-              disableTransitionOnChange
-            >
-              <TooltipProvider delayDuration={300} disableHoverableContent>
-                <GlossaryContextProvider
-                  terms={terms.map((term) => ({
-                    id: term.id,
-                    matches: [term.data.term, ...(term.data.match ?? [])],
-                  }))}
-                >
-                  <SearchBarContextProvider projects={searchBarProjects}>
-                    {children}
-                  </SearchBarContextProvider>
-                  <ProgressBar />
-                </GlossaryContextProvider>
-              </TooltipProvider>
-            </ThemeProvider>
-          </TRPCReactProvider>
-        </PlausibleProvider>
+          {children}
+          <NavigationProgressBar />
+        </AppLayout>
       </body>
     </html>
   )

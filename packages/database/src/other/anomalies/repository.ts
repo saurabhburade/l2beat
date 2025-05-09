@@ -1,6 +1,6 @@
-import { ProjectId, UnixTime } from '@l2beat/shared-pure'
+import { type ProjectId, UnixTime } from '@l2beat/shared-pure'
 import { BaseRepository } from '../../BaseRepository'
-import { AnomalyRecord, toRecord, toRow } from './entity'
+import { type AnomalyRecord, toRecord, toRow } from './entity'
 import { selectAnomaly } from './select'
 
 export class AnomaliesRepository extends BaseRepository {
@@ -50,7 +50,7 @@ export class AnomaliesRepository extends BaseRepository {
       .selectFrom('Anomaly')
       .select(selectAnomaly)
       .where('projectId', '=', projectId)
-      .where('timestamp', '>=', from.toDate())
+      .where('timestamp', '>=', UnixTime.toDate(from))
       .execute()
     return rows.map(toRecord)
   }
@@ -63,7 +63,7 @@ export class AnomaliesRepository extends BaseRepository {
       .selectFrom('Anomaly')
       .select(selectAnomaly)
       .where('projectId', 'in', projectIds)
-      .where('timestamp', '>=', from.toDate())
+      .where('timestamp', '>=', UnixTime.toDate(from))
       .execute()
     return rows.map(toRecord)
   }

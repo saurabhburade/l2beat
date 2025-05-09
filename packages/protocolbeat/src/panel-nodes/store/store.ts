@@ -14,10 +14,13 @@ import {
   clear,
   colorSelected,
   hideSelected,
+  hideUnknowns,
   layout,
+  setPreferences,
   showHidden,
 } from './actions/other'
 import { selectAndFocus } from './actions/selectAndFocus'
+import { setNodes } from './actions/setNodes'
 import { persistNodeLayout } from './utils/storage'
 
 const INITIAL_STATE: State = {
@@ -41,20 +44,26 @@ const INITIAL_STATE: State = {
   selection: undefined,
   positionsBeforeMove: {},
   projectId: '',
+  userPreferences: {
+    hideUnknownOnLoad: true,
+  },
 }
 
 export const useStore = create<State & Actions>()(
   persist(
     (set) => ({
       ...INITIAL_STATE,
-
       loadNodes: wrapAction(set, loadNodes),
+      setNodes: wrapAction(set, setNodes),
       colorSelected: wrapAction(set, colorSelected),
       hideSelected: wrapAction(set, hideSelected),
+      hideUnknowns: wrapAction(set, hideUnknowns),
       showHidden: wrapAction(set, showHidden),
       clear: wrapAction(set, clear),
       layout: wrapAction(set, layout),
       selectAndFocus: wrapAction(set, selectAndFocus),
+
+      setPreferences: wrapAction(set, setPreferences),
 
       onKeyDown: wrapAction(set, onKeyDown),
       onKeyUp: wrapAction(set, onKeyUp),
@@ -65,12 +74,13 @@ export const useStore = create<State & Actions>()(
     }),
     {
       // You can update the key if changes are backwards incompatible
-      name: 'store-v3',
+      name: 'store-v4',
       partialize: (state) => {
         return {
           projectId: state.projectId,
           nodes: state.nodes,
           hidden: state.hidden,
+          userPreferences: state.userPreferences,
         }
       },
     },

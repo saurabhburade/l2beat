@@ -1,7 +1,8 @@
-import { ContractValue, ProxyDetails } from '@l2beat/discovery-types'
 import { assert, EthereumAddress } from '@l2beat/shared-pure'
+import type { ContractValue } from '../../output/types'
+import type { ProxyDetails } from '../types'
 
-import { IProvider } from '../../provider/IProvider'
+import type { IProvider } from '../../provider/IProvider'
 import { getImplementation } from '../auto/Eip1967Proxy'
 import { getPastUpgradesSingleEvent } from '../pastUpgrades'
 

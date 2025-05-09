@@ -1,7 +1,7 @@
-import { TrackedTxId } from '@l2beat/shared'
+import type { TrackedTxId } from '@l2beat/shared'
 import { UnixTime } from '@l2beat/shared-pure'
-import { Insertable, Selectable } from 'kysely'
-import { L2Cost } from '../../kysely/generated/types'
+import type { Insertable, Selectable } from 'kysely'
+import type { L2Cost } from '../../kysely/generated/types'
 
 export interface L2CostRecord {
   timestamp: UnixTime
@@ -27,7 +27,7 @@ export function toRecord(row: Selectable<L2Cost>): L2CostRecord {
 export function toRow(record: L2CostRecord): Insertable<L2Cost> {
   return {
     ...record,
-    timestamp: record.timestamp.toDate(),
+    timestamp: UnixTime.toDate(record.timestamp),
     configurationId: record.configurationId.toString(),
     gasPrice: record.gasPrice.toString(),
     blobGasPrice: record.blobGasPrice?.toString() ?? null,

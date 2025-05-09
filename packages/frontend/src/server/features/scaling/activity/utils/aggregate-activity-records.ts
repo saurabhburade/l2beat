@@ -1,5 +1,6 @@
-import { type ActivityRecord } from '@l2beat/database'
-import { ProjectId, type UnixTime } from '@l2beat/shared-pure'
+import type { ActivityRecord } from '@l2beat/database'
+import type { UnixTime } from '@l2beat/shared-pure'
+import { ProjectId } from '@l2beat/shared-pure'
 
 export function aggregateActivityRecords(
   entries: ActivityRecord[],
@@ -14,13 +15,11 @@ export function aggregateActivityRecords(
     return undefined
   }
 
-  const startIndex = entries.findIndex(
-    (e) => e.timestamp.toNumber() === startTimestamp.toNumber(),
-  )
+  const startIndex = entries.findIndex((e) => e.timestamp === startTimestamp)
 
   const aggregatedEntries = entries.slice(startIndex).reduce(
     (acc, entry) => {
-      const timestamp = entry.timestamp.toNumber()
+      const timestamp = entry.timestamp
       const isEthereum = entry.projectId === ProjectId.ETHEREUM
 
       if (!acc[timestamp]) {

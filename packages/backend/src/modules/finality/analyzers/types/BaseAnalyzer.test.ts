@@ -1,18 +1,18 @@
 import { ProjectId, UnixTime } from '@l2beat/shared-pure'
 import { expect, mockFn, mockObject } from 'earl'
 
-import {
+import type {
   Database,
   IndexerConfigurationRecord,
   LivenessRecord,
 } from '@l2beat/database'
-import { RpcClient, createTrackedTxId } from '@l2beat/shared'
-import { mean } from 'lodash'
+import { type RpcClient, createTrackedTxId } from '@l2beat/shared'
+import mean from 'lodash/mean'
 import {
   BaseAnalyzer,
-  Batch,
-  L2Block,
-  Transaction,
+  type Batch,
+  type L2Block,
+  type Transaction,
   batchesToStateUpdateDelays,
 } from './BaseAnalyzer'
 
@@ -26,7 +26,7 @@ describe(BaseAnalyzer.name, () => {
         mockObject<LivenessRecord>({
           configurationId: mockConfigurationId,
           txHash: 'tx3',
-          timestamp: now.add(-1, 'hours'),
+          timestamp: now - 1 * UnixTime.HOUR,
         }),
         mockObject<LivenessRecord>({
           configurationId: mockConfigurationId,
@@ -36,7 +36,7 @@ describe(BaseAnalyzer.name, () => {
         mockObject<LivenessRecord>({
           configurationId: mockConfigurationId,
           txHash: 'tx2',
-          timestamp: now.add(1, 'hours'),
+          timestamp: now + 1 * UnixTime.HOUR,
         }),
       ]
 
@@ -76,14 +76,14 @@ describe(BaseAnalyzer.name, () => {
       )
 
       expect(
-        await mockAnalyzer.analyzeInterval(now, now.add(10, 'hours')),
+        await mockAnalyzer.analyzeInterval(now, now + 10 * UnixTime.HOUR),
       ).toEqual([
         {
-          l1Timestamp: now.toNumber(),
+          l1Timestamp: now,
           l2Blocks: [{ blockNumber: 2, timestamp: 1 }],
         },
         {
-          l1Timestamp: now.add(1, 'hours').toNumber(),
+          l1Timestamp: now + 1 * UnixTime.HOUR,
           l2Blocks: [{ blockNumber: 2, timestamp: 1 }],
         },
       ])
@@ -91,8 +91,8 @@ describe(BaseAnalyzer.name, () => {
         mockLivenessRepository.getByConfigurationIdWithinTimeRange,
       ).toHaveBeenCalledWith(
         [mockConfigurationId],
-        now.add(-1, 'days'),
-        now.add(10, 'hours'),
+        now - 1 * UnixTime.DAY,
+        now + 10 * UnixTime.HOUR,
       )
       expect(getFinalitySpy).toHaveBeenCalledTimes(2)
       expect(getFinalitySpy).toHaveBeenCalledWith({
@@ -146,6 +146,74 @@ describe(batchesToStateUpdateDelays.name, () => {
     const result = batchesToStateUpdateDelays(t2iBatches, suBatches)
 
     expect(mean(result)).toEqual(66 / 7)
+  })
+
+  it('fallback to lerp when block missing in t2iBatches', () => {
+    const t2iBatches: Batch[] = [
+      {
+        l1Timestamp: 7,
+        l2Blocks: [
+          { blockNumber: 0, timestamp: 0 },
+          { blockNumber: 1, timestamp: 2 },
+          { blockNumber: 2, timestamp: 4 },
+        ],
+      },
+    ]
+
+    const suBatches: Batch[] = [
+      {
+        l1Timestamp: 21,
+        l2Blocks: [
+          { blockNumber: 0, timestamp: 0 },
+          { blockNumber: 1, timestamp: 2 },
+          { blockNumber: 2, timestamp: 4 },
+          { blockNumber: 3, timestamp: 6 },
+          { blockNumber: 4, timestamp: 8 },
+          { blockNumber: 5, timestamp: 10 },
+          { blockNumber: 6, timestamp: 12 },
+        ],
+      },
+    ]
+
+    const result = batchesToStateUpdateDelays(t2iBatches, suBatches)
+
+    expect(mean(result)).toEqual(110 / 7)
+  })
+
+  it('do not fail if first batch has no l2Blocks', () => {
+    const t2iBatches: Batch[] = [
+      {
+        l1Timestamp: 5,
+        l2Blocks: [],
+      },
+      {
+        l1Timestamp: 7,
+        l2Blocks: [
+          { blockNumber: 0, timestamp: 0 },
+          { blockNumber: 1, timestamp: 2 },
+          { blockNumber: 2, timestamp: 4 },
+        ],
+      },
+    ]
+
+    const suBatches: Batch[] = [
+      {
+        l1Timestamp: 21,
+        l2Blocks: [
+          { blockNumber: 0, timestamp: 0 },
+          { blockNumber: 1, timestamp: 2 },
+          { blockNumber: 2, timestamp: 4 },
+          { blockNumber: 3, timestamp: 6 },
+          { blockNumber: 4, timestamp: 8 },
+          { blockNumber: 5, timestamp: 10 },
+          { blockNumber: 6, timestamp: 12 },
+        ],
+      },
+    ]
+
+    const result = batchesToStateUpdateDelays(t2iBatches, suBatches)
+
+    expect(mean(result)).toEqual(110 / 7)
   })
 })
 

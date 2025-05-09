@@ -1,18 +1,16 @@
 import { assert } from '@l2beat/shared-pure'
-import {
-  type Column,
-  type Header,
-  type Row,
-  type Table as TanstackTable,
-  flexRender,
+import type {
+  Column,
+  Header,
+  Row,
+  Table as TanstackTable,
 } from '@tanstack/react-table'
-import { range } from 'lodash'
-import { type CSSProperties } from 'react'
+import { flexRender } from '@tanstack/react-table'
+import range from 'lodash/range'
+import type { CSSProperties } from 'react'
 import React from 'react'
-import {
-  getBasicTableGroupParams,
-  getBasicTableHref,
-} from '~/components/table/basic-table'
+import { getBasicTableGroupParams } from '~/components/table/basic-table'
+import { useHighlightedTableRowContext } from '~/components/table/highlighted-table-row-context'
 import { SortingArrows } from '~/components/table/sorting/sorting-arrows'
 import {
   Table,
@@ -80,7 +78,8 @@ export function BasicDaTable<T extends BasicEntry>({
   assert(maxDepth <= 1, 'Only 1 level of headers is supported')
 
   const groupedHeader = maxDepth === 1 ? headerGroups[0] : undefined
-  const actualHeader = maxDepth === 1 ? headerGroups[1]! : headerGroups[0]!
+  const actualHeader = maxDepth === 1 ? headerGroups[1] : headerGroups[0]
+  assert(actualHeader, 'Actual header is required')
 
   const columnLength =
     actualHeader.headers.length +
@@ -105,6 +104,9 @@ export function BasicDaTable<T extends BasicEntry>({
                       colSpan={header.colSpan}
                       className={cn(
                         'font-medium tracking-[-0.13px] text-primary',
+                        header.column.getIsPinned() &&
+                          getRowTypeClassNamesWithoutOpacity(),
+
                         !header.isPlaceholder &&
                           !!header.column.columnDef.header &&
                           'rounded-t-lg px-6 pt-4',
@@ -179,62 +181,88 @@ export function BasicDaTable<T extends BasicEntry>({
         </TableHeaderRow>
       </TableHeader>
       <TableBody>
-        {table.getRowModel().rows.map((row) => {
-          return (
-            <React.Fragment key={row.id}>
-              <TableRow className={cn(getRowTypeClassNames())}>
-                {row.getVisibleCells().map((cell) => {
-                  const { meta } = cell.column.columnDef
-                  const groupParams = getBasicTableGroupParams(cell.column)
-                  const href = getBasicTableHref(row.original.href, meta?.hash)
-
-                  const rowSpan = meta?.rowSpan
-                    ? meta.rowSpan(cell.getContext())
-                    : undefined
-
-                  const isVirtual = cell.column.columnDef.meta?.virtual
-
-                  if (isVirtual) {
-                    return null
-                  }
-
-                  return (
-                    <TableCell
-                      key={`${row.id}-${cell.id}`}
-                      href={href}
-                      align={meta?.align}
-                      className={cn(
-                        cell.column.getIsPinned() &&
-                          getRowTypeClassNamesWithoutOpacity(),
-                        groupParams?.isFirstInGroup && 'pl-6',
-                        groupParams?.isLastInGroup && '!pr-6',
-                        cell.column.getCanSort() && meta?.align === undefined
-                          ? groupParams?.isFirstInGroup
-                            ? 'pl-10'
-                            : 'pl-4'
-                          : undefined,
-
-                        meta?.cellClassName,
-                      )}
-                      style={getCommonPinningStyles(cell.column)}
-                      rowSpan={rowSpan}
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  )
-                })}
-                {renderInlineSpanFill?.({ row })}
-              </TableRow>
-              {renderSpanFill?.({ row })}
-            </React.Fragment>
-          )
-        })}
+        {table.getRowModel().rows.map((row) => (
+          <BasicDaTableRow
+            key={row.id}
+            row={row}
+            renderSpanFill={renderSpanFill}
+            renderInlineSpanFill={renderInlineSpanFill}
+          />
+        ))}
         {groupedHeader && <RowFiller headers={groupedHeader.headers} />}
       </TableBody>
     </Table>
+  )
+}
+
+function BasicDaTableRow<T extends BasicEntry>({
+  row,
+  renderSpanFill,
+  renderInlineSpanFill,
+}: {
+  row: Row<T>
+  renderSpanFill?: (props: { row: Row<T> }) => React.ReactElement | null
+  renderInlineSpanFill?: (props: { row: Row<T> }) => React.ReactElement | null
+}) {
+  const { highlightedSlug } = useHighlightedTableRowContext()
+
+  return (
+    <>
+      <TableRow
+        slug={row.original.slug}
+        className={cn(
+          getRowTypeClassNames({
+            isEthereum: row.original.slug === 'ethereum',
+          }),
+        )}
+      >
+        {row.getVisibleCells().map((cell) => {
+          const { meta } = cell.column.columnDef
+          const groupParams = getBasicTableGroupParams(cell.column)
+
+          const rowSpan = meta?.rowSpan
+            ? meta.rowSpan(cell.getContext())
+            : undefined
+
+          const isVirtual = cell.column.columnDef.meta?.virtual
+
+          if (isVirtual) {
+            return null
+          }
+
+          return (
+            <TableCell
+              key={`${row.id}-${cell.id}`}
+              align={meta?.align}
+              className={cn(
+                cell.column.getIsPinned() &&
+                  getRowTypeClassNamesWithoutOpacity({
+                    isEthereum: row.original.slug === 'ethereum',
+                  }),
+                cell.column.getIsPinned() &&
+                  highlightedSlug === row.original.slug &&
+                  'animate-row-highlight-no-opacity',
+                groupParams?.isFirstInGroup && 'pl-6',
+                groupParams?.isLastInGroup && '!pr-6',
+                cell.column.getCanSort() && meta?.align === undefined
+                  ? groupParams?.isFirstInGroup
+                    ? 'pl-10'
+                    : 'pl-4'
+                  : undefined,
+
+                meta?.cellClassName,
+              )}
+              style={getCommonPinningStyles(cell.column)}
+              rowSpan={rowSpan}
+            >
+              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+            </TableCell>
+          )
+        })}
+        {renderInlineSpanFill?.({ row })}
+      </TableRow>
+      {renderSpanFill?.({ row })}
+    </>
   )
 }
 
@@ -243,7 +271,7 @@ function ColGroup<T, V>(props: { headers: Header<T, V>[] }) {
     return (
       <React.Fragment key={header.id}>
         <colgroup
-          className={cn(!header.isPlaceholder && 'bg-surface-table-group')}
+          className={cn(!header.isPlaceholder && 'bg-header-secondary')}
         >
           {range(header.colSpan).map((i) => (
             <col key={`${header.id}-${i}`} />
@@ -273,10 +301,15 @@ function RowFiller<T, V>(props: { headers: Header<T, V>[] }) {
   )
 }
 
-export function getRowTypeClassNames() {
-  return 'hover:shadow-none'
+export function getRowTypeClassNames({ isEthereum }: { isEthereum?: boolean }) {
+  return cn(
+    'hover:shadow-none',
+    isEthereum && 'bg-blue-500/35 dark:bg-blue-700/25',
+  )
 }
 
-function getRowTypeClassNamesWithoutOpacity() {
-  return 'bg-surface-primary group-hover/row:bg-[#EEEEEE] dark:group-hover/row:bg-[#35363A]'
+function getRowTypeClassNamesWithoutOpacity({
+  isEthereum,
+}: { isEthereum?: boolean } = {}) {
+  return cn('bg-surface-primary', isEthereum && 'bg-blue-400 dark:bg-blue-900')
 }

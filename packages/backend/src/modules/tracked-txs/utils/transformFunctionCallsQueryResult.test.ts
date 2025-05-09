@@ -2,27 +2,31 @@ import { readFileSync } from 'fs'
 import {
   EthereumAddress,
   ProjectId,
-  TrackedTxsConfigSubtype,
+  type TrackedTxsConfigSubtype,
   UnixTime,
 } from '@l2beat/shared-pure'
 import { expect } from 'earl'
 
 import {
-  TrackedTxConfigEntry,
-  TrackedTxFunctionCallConfig,
-  TrackedTxId,
-  TrackedTxSharedBridgeConfig,
-  TrackedTxSharpSubmissionConfig,
+  type TrackedTxConfigEntry,
+  type TrackedTxFunctionCallConfig,
+  type TrackedTxId,
+  type TrackedTxSharedBridgeConfig,
+  type TrackedTxSharpSubmissionConfig,
   createTrackedTxId,
 } from '@l2beat/shared'
 import {
-  sharedBridgeChainId,
-  sharedBridgeCommitBatchesInput,
-  sharedBridgeCommitBatchesSelector,
-  sharedBridgeCommitBatchesSignature,
+  agglayerSharedBridgeChainId,
+  agglayerSharedBridgeVerifyBatchesInput,
+  agglayerSharedBridgeVerifyBatchesSelector,
+  agglayerSharedBridgeVerifyBatchesSignature,
+  elasticChainSharedBridgeChainId,
+  elasticChainSharedBridgeCommitBatchesInput,
+  elasticChainSharedBridgeCommitBatchesSelector,
+  elasticChainSharedBridgeCommitBatchesSignature,
 } from '../../../test/sharedBridge'
-import { Configuration } from '../../../tools/uif/multi/types'
-import {
+import type { Configuration } from '../../../tools/uif/multi/types'
+import type {
   BigQueryFunctionCallResult,
   TrackedTxFunctionCallResult,
 } from '../types/model'
@@ -88,12 +92,12 @@ describe(transformFunctionCallsQueryResult.name, () => {
         id: createTrackedTxId.random(),
         projectId: ProjectId('project2'),
         address: EthereumAddress.random(),
-        selector: sharedBridgeCommitBatchesSelector,
+        selector: elasticChainSharedBridgeCommitBatchesSelector,
         formula: 'sharedBridge',
         sinceTimestamp: SINCE_TIMESTAMP,
         subtype: 'batchSubmissions',
-        chainId: sharedBridgeChainId,
-        signature: sharedBridgeCommitBatchesSignature,
+        chainId: elasticChainSharedBridgeChainId,
+        signature: elasticChainSharedBridgeCommitBatchesSignature,
       }),
     ]
 
@@ -316,23 +320,34 @@ describe(transformFunctionCallsQueryResult.name, () => {
         id: createTrackedTxId.random(),
         projectId: ProjectId('project1'),
         address: EthereumAddress.random(),
-        selector: sharedBridgeCommitBatchesSelector,
+        selector: elasticChainSharedBridgeCommitBatchesSelector,
         formula: 'sharedBridge',
         sinceTimestamp: SINCE_TIMESTAMP,
         subtype: 'batchSubmissions',
-        chainId: sharedBridgeChainId,
-        signature: sharedBridgeCommitBatchesSignature,
+        chainId: elasticChainSharedBridgeChainId,
+        signature: elasticChainSharedBridgeCommitBatchesSignature,
       }),
       mockSharedBridgeCall({
         id: createTrackedTxId.random(),
         projectId: ProjectId('project2'),
         address: EthereumAddress.random(),
-        selector: sharedBridgeCommitBatchesSelector,
+        selector: elasticChainSharedBridgeCommitBatchesSelector,
         formula: 'sharedBridge',
         sinceTimestamp: SINCE_TIMESTAMP,
         subtype: 'batchSubmissions',
         chainId: 1,
-        signature: sharedBridgeCommitBatchesSignature,
+        signature: elasticChainSharedBridgeCommitBatchesSignature,
+      }),
+      mockSharedBridgeCall({
+        id: createTrackedTxId.random(),
+        projectId: ProjectId('project3'),
+        address: EthereumAddress.random(),
+        selector: agglayerSharedBridgeVerifyBatchesSelector,
+        formula: 'sharedBridge',
+        sinceTimestamp: SINCE_TIMESTAMP,
+        subtype: 'batchSubmissions',
+        chainId: agglayerSharedBridgeChainId,
+        signature: agglayerSharedBridgeVerifyBatchesSignature,
       }),
     ]
 
@@ -340,7 +355,20 @@ describe(transformFunctionCallsQueryResult.name, () => {
       {
         hash: txHashes[0],
         to_address: sharedBridgeCalls[0].properties.params.address,
-        input: sharedBridgeCommitBatchesInput,
+        input: elasticChainSharedBridgeCommitBatchesInput,
+        block_number: block,
+        block_timestamp: timestamp,
+        gas_price: 10n,
+        receipt_gas_used: 100,
+        calldata_gas_used: 100,
+        data_length: 100,
+        receipt_blob_gas_price: null,
+        receipt_blob_gas_used: null,
+      },
+      {
+        hash: txHashes[1],
+        to_address: sharedBridgeCalls[2].properties.params.address,
+        input: agglayerSharedBridgeVerifyBatchesInput,
         block_number: block,
         block_timestamp: timestamp,
         gas_price: 10n,
@@ -363,7 +391,25 @@ describe(transformFunctionCallsQueryResult.name, () => {
         blockNumber: block,
         blockTimestamp: timestamp,
         toAddress: sharedBridgeCalls[0].properties.params.address,
-        input: sharedBridgeCommitBatchesInput,
+        input: elasticChainSharedBridgeCommitBatchesInput,
+        gasPrice: 10n,
+        receiptGasUsed: 100,
+        calldataGasUsed: 100,
+        dataLength: 100,
+        receiptBlobGasPrice: null,
+        receiptBlobGasUsed: null,
+      },
+      {
+        formula: 'functionCall',
+        projectId: sharedBridgeCalls[2].properties.projectId,
+        type: sharedBridgeCalls[2].properties.type,
+        id: sharedBridgeCalls[2].id,
+        subtype: sharedBridgeCalls[2].properties.subtype,
+        hash: txHashes[1],
+        blockNumber: block,
+        blockTimestamp: timestamp,
+        toAddress: sharedBridgeCalls[2].properties.params.address,
+        input: agglayerSharedBridgeVerifyBatchesInput,
         gasPrice: 10n,
         receiptGasUsed: 100,
         calldataGasUsed: 100,
@@ -398,7 +444,7 @@ function mockFunctionCall({
   subtype: TrackedTxsConfigSubtype
   address: EthereumAddress
   selector: string
-  sinceTimestamp: UnixTime
+  sinceTimestamp: number
   formula: TrackedTxFunctionCallConfig['formula']
 }): Configuration<
   TrackedTxConfigEntry & {
@@ -419,6 +465,7 @@ function mockFunctionCall({
         formula,
         address,
         selector,
+        signature: 'function foo()',
       },
     },
   }
@@ -439,7 +486,7 @@ function mockSharpSubmission({
   subtype: TrackedTxsConfigSubtype
   address: EthereumAddress
   selector: string
-  sinceTimestamp: UnixTime
+  sinceTimestamp: number
   formula: TrackedTxSharpSubmissionConfig['formula']
   programHashes: string[]
 }): Configuration<
@@ -483,7 +530,7 @@ function mockSharedBridgeCall({
   subtype: TrackedTxsConfigSubtype
   address: EthereumAddress
   selector: string
-  sinceTimestamp: UnixTime
+  sinceTimestamp: number
   formula: TrackedTxSharedBridgeConfig['formula']
   chainId: number
   signature: `function ${string}`

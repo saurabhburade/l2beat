@@ -2,8 +2,8 @@ import { ProjectId, UnixTime } from '@l2beat/shared-pure'
 import { expect, mockFn, mockObject } from 'earl'
 import { utils } from 'ethers'
 
-import { Database } from '@l2beat/database'
-import { RpcClient } from '@l2beat/shared'
+import type { Database } from '@l2beat/database'
+import type { RpcClient } from '@l2beat/shared'
 import { OpStackStateUpdateAnalyzer } from './OpStackStateUpdateAnalyzer'
 
 describe(OpStackStateUpdateAnalyzer.name, () => {
@@ -32,8 +32,8 @@ describe(OpStackStateUpdateAnalyzer.name, () => {
         l2provider,
       )
       const results = await calculator.analyze(
-        { txHash: '0x123', timestamp: new UnixTime(previousL1Timestamp) },
-        { txHash: '0x456', timestamp: new UnixTime(currentL1Timestamp) },
+        { txHash: '0x123', timestamp: UnixTime(previousL1Timestamp) },
+        { txHash: '0x456', timestamp: UnixTime(currentL1Timestamp) },
       )
 
       expect(results).toEqualUnsorted([

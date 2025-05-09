@@ -1,6 +1,7 @@
 'use client'
-import { type Milestone } from '@l2beat/config'
-import { useMemo } from 'react'
+import type { Milestone } from '@l2beat/config'
+import { useEffect, useMemo, useState } from 'react'
+import type { TabbedScalingEntries } from '~/app/(side-nav)/scaling/_utils/group-by-scaling-tabs'
 import { CountBadge } from '~/components/badge/count-badge'
 import { ScalingCostsChart } from '~/components/chart/costs/scaling-costs-chart'
 import {
@@ -11,12 +12,14 @@ import {
 } from '~/components/core/directory-tabs'
 import { HorizontalSeparator } from '~/components/core/horizontal-separator'
 import { OtherMigrationTabNotice } from '~/components/countdowns/other-migration/other-migration-tab-notice'
+import { useRecategorisationPreviewContext } from '~/components/recategorisation-preview/recategorisation-preview-provider'
 import { OthersInfo, RollupsInfo } from '~/components/scaling-tabs-info'
+import { TableFilters } from '~/components/table/filters/table-filters'
+import { useFilterEntries } from '~/components/table/filters/use-filter-entries'
 import { TableSortingProvider } from '~/components/table/sorting/table-sorting-context'
-import { type ScalingCostsEntry } from '~/server/features/scaling/costs/get-scaling-costs-entries'
-import { type TabbedScalingEntries } from '~/utils/group-by-tabs'
-import { useScalingFilter } from '../../_components/scaling-filter-context'
-import { ScalingFilters } from '../../_components/scaling-filters'
+import type { ScalingCostsEntry } from '~/server/features/scaling/costs/get-scaling-costs-entries'
+import { compareCosts } from '~/server/features/scaling/costs/utils/compare-stage-and-cost'
+import { getRecategorisedEntries } from '../../_utils/get-recategorised-entries'
 import { ScalingCostsTable } from './table/scaling-costs-table'
 
 type Props = TabbedScalingEntries<ScalingCostsEntry> & {
@@ -24,74 +27,92 @@ type Props = TabbedScalingEntries<ScalingCostsEntry> & {
 }
 
 export function ScalingCostsTabs(props: Props) {
-  const includeFilters = useScalingFilter()
+  const filterEntries = useFilterEntries()
+  const [tab, setTab] = useState('rollups')
+  const { checked } = useRecategorisationPreviewContext()
+
   const filteredEntries = {
-    rollups: props.rollups.filter(includeFilters),
-    validiumsAndOptimiums: props.validiumsAndOptimiums.filter(includeFilters),
-    others: props.others.filter(includeFilters),
+    rollups: props.rollups.filter(filterEntries),
+    validiumsAndOptimiums: props.validiumsAndOptimiums.filter(filterEntries),
+    others: props.others.filter(filterEntries),
   }
+  const entries = checked
+    ? getRecategorisedEntries(filteredEntries, compareCosts)
+    : filteredEntries
 
   const projectToBeMigratedToOthers = useMemo(
     () =>
-      [...props.rollups, ...props.validiumsAndOptimiums, ...props.others]
-        .filter((project) => project.statuses?.countdowns?.otherMigration)
-        .map((project) => ({
-          slug: project.slug,
-          name: project.name,
-        })),
-    [props.others, props.rollups, props.validiumsAndOptimiums],
+      checked
+        ? []
+        : [
+            ...entries.rollups,
+            ...entries.validiumsAndOptimiums,
+            ...entries.others,
+          ]
+            .filter((project) => project.statuses?.countdowns?.otherMigration)
+            .map((project) => ({
+              slug: project.slug,
+              name: project.name,
+              icon: project.icon,
+            })),
+    [checked, entries.others, entries.rollups, entries.validiumsAndOptimiums],
   )
 
   const initialSort = {
-    id: '#',
+    id: 'total-cost',
     desc: false,
   }
 
+  useEffect(() => {
+    if (!checked && tab === 'others' && entries.others.length === 0) {
+      setTab('rollups')
+    }
+  }, [checked, entries.others, tab])
+
+  const showOthers = checked || entries.others.length > 0
   return (
     <>
-      <ScalingFilters
-        items={[
-          ...filteredEntries.rollups,
-          ...filteredEntries.validiumsAndOptimiums,
-          ...filteredEntries.others,
+      <TableFilters
+        entries={[
+          ...props.rollups,
+          ...props.validiumsAndOptimiums,
+          ...props.others,
         ]}
-        className="max-md:mt-4"
       />
-      <DirectoryTabs defaultValue="rollups">
+      <DirectoryTabs value={tab} onValueChange={setTab}>
         <DirectoryTabsList>
           <DirectoryTabsTrigger value="rollups">
-            Rollups <CountBadge>{filteredEntries.rollups.length}</CountBadge>
+            Rollups <CountBadge>{entries.rollups.length}</CountBadge>
           </DirectoryTabsTrigger>
-          {filteredEntries.others.length > 0 && (
+          {showOthers && (
             <DirectoryTabsTrigger value="others">
-              Others <CountBadge>{filteredEntries.others.length}</CountBadge>
+              Others <CountBadge>{entries.others.length}</CountBadge>
             </DirectoryTabsTrigger>
           )}
         </DirectoryTabsList>
         <TableSortingProvider initialSort={initialSort}>
-          <DirectoryTabsContent value="rollups" className="main-page-card pt-5">
+          <DirectoryTabsContent value="rollups" className="pt-4 sm:pt-3">
+            <RollupsInfo />
             <ScalingCostsChart
-              entries={props.rollups}
+              tab="rollups"
+              entries={entries.rollups}
               milestones={props.milestones}
             />
             <HorizontalSeparator className="my-5" />
-            <RollupsInfo />
-            <ScalingCostsTable entries={filteredEntries.rollups} rollups />
+            <ScalingCostsTable entries={entries.rollups} rollups />
           </DirectoryTabsContent>
         </TableSortingProvider>
-        {filteredEntries.others.length > 0 && (
+        {showOthers && (
           <TableSortingProvider initialSort={initialSort}>
-            <DirectoryTabsContent
-              value="others"
-              className="main-page-card pt-5"
-            >
+            <DirectoryTabsContent value="others" className="pt-4 sm:pt-3">
+              <OthersInfo />
               <ScalingCostsChart
-                entries={props.others ?? []}
+                tab="others"
+                entries={entries.others}
                 milestones={props.milestones}
               />
               <HorizontalSeparator className="my-5" />
-              <OthersInfo />
-              <ScalingCostsTable entries={filteredEntries.others} />
+              <ScalingCostsTable entries={entries.others} />
               <OtherMigrationTabNotice
                 projectsToBeMigrated={projectToBeMigratedToOthers}
                 className="mt-2"

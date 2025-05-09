@@ -1,7 +1,7 @@
 import { ProjectId, UnixTime } from '@l2beat/shared-pure'
 import { expect } from 'earl'
 import { describeDatabase } from '../../test/database'
-import { AggregatedLivenessRecord } from './entity'
+import type { AggregatedLivenessRecord } from './entity'
 import { AggregatedLivenessRepository } from './repository'
 
 describeDatabase(AggregatedLivenessRepository.name, (db) => {
@@ -19,7 +19,7 @@ describeDatabase(AggregatedLivenessRepository.name, (db) => {
       min: 10,
       avg: 10,
       max: 10,
-      updatedAt: START.add(-1, 'hours'),
+      updatedAt: START - 1 * UnixTime.HOUR,
     },
     {
       projectId: PROJECT_B,
@@ -28,7 +28,7 @@ describeDatabase(AggregatedLivenessRepository.name, (db) => {
       min: 10,
       avg: 10,
       max: 10,
-      updatedAt: START.add(-2, 'hours'),
+      updatedAt: START - 2 * UnixTime.HOUR,
     },
   ]
 
@@ -49,7 +49,7 @@ describeDatabase(AggregatedLivenessRepository.name, (db) => {
           min: 20,
           avg: 20,
           max: 20,
-          updatedAt: START.add(-1, 'hours'),
+          updatedAt: START - 1 * UnixTime.HOUR,
         },
         // to add
         {
@@ -59,7 +59,7 @@ describeDatabase(AggregatedLivenessRepository.name, (db) => {
           min: 10,
           avg: 10,
           max: 10,
-          updatedAt: START.add(-4, 'hours'),
+          updatedAt: START - 4 * UnixTime.HOUR,
         },
       ]
 
@@ -76,7 +76,7 @@ describeDatabase(AggregatedLivenessRepository.name, (db) => {
           min: 10,
           avg: 10,
           max: 10,
-          updatedAt: START.add(-2, 'hours'),
+          updatedAt: START - 2 * UnixTime.HOUR,
         },
         newRows[1]!,
       ])

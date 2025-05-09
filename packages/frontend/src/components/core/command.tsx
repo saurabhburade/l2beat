@@ -1,6 +1,6 @@
 'use client'
 
-import { type DialogProps } from '@radix-ui/react-dialog'
+import type { DialogProps } from '@radix-ui/react-dialog'
 import { Slot } from '@radix-ui/react-slot'
 import { Command as CommandPrimitive } from 'cmdk'
 import * as React from 'react'
@@ -12,16 +12,12 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from './dialog'
 const Command = ({
   ref,
   className,
-  sidebar,
   ...props
-}: React.ComponentProps<typeof CommandPrimitive> & {
-  sidebar?: boolean
-}) => (
+}: React.ComponentProps<typeof CommandPrimitive>) => (
   <CommandPrimitive
     ref={ref}
     className={cn(
-      'custom-scrollbar flex size-full flex-col overflow-hidden rounded-md',
-      sidebar ? 'sidebar bg-surface-secondary' : 'bg-gray-200 dark:bg-zinc-700',
+      'flex size-full flex-col overflow-hidden rounded-md border border-divider bg-surface-primary focus-visible:border-brand focus-visible:outline-none primary-card:bg-surface-secondary',
       className,
     )}
     {...props}
@@ -34,10 +30,12 @@ const CommandDialog = ({
   title,
   description,
   onEscapeKeyDown,
+  fullScreenMobile,
   ...props
 }: DialogProps & {
   title: string
   description: string
+  fullScreenMobile?: boolean
   onEscapeKeyDown?: (event: KeyboardEvent) => void
 }) => {
   return (
@@ -45,11 +43,11 @@ const CommandDialog = ({
       <DialogTitle className="sr-only">{title}</DialogTitle>
       <DialogDescription className="sr-only">{description}</DialogDescription>
       <DialogContent
-        className="top-1/2 overflow-hidden p-0 shadow-lg max-md:h-screen max-md:border-none md:top-1/4 max-md:[@supports(height:100dvh)]:h-dvh"
-        overlayClassName="max-md:hidden"
+        className="overflow-hidden p-0 max-md:border-none"
         onEscapeKeyDown={onEscapeKeyDown}
+        fullScreenMobile={fullScreenMobile}
       >
-        <Slot className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-secondary [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:size-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:size-5">
+        <Slot className="!border-none [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-secondary [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:size-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:size-5">
           {children}
         </Slot>
       </DialogContent>
@@ -65,14 +63,14 @@ const CommandInput = ({
 }: React.ComponentProps<typeof CommandPrimitive.Input>) => {
   return (
     <div
-      className="flex items-center border-b border-gray-400 px-3 sidebar:!border-surface-tertiary dark:border-gray-650"
+      className="flex items-center border-b border-divider px-3"
       cmdk-input-wrapper=""
     >
-      <SearchIcon className="mr-2 size-4 shrink-0 fill-gray-500 sidebar:!fill-secondary dark:fill-gray-50" />
+      <SearchIcon className="mr-2 size-4 shrink-0 fill-secondary" />
       <CommandPrimitive.Input
         ref={ref}
         className={cn(
-          'flex h-11 w-full bg-transparent py-3 text-sm outline-none placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-50 sidebar:placeholder:!text-secondary dark:placeholder:text-gray-50',
+          'flex h-11 w-full bg-transparent py-3 text-sm outline-none placeholder:!text-secondary disabled:cursor-not-allowed disabled:opacity-50',
           className,
         )}
         {...props}
@@ -137,7 +135,7 @@ const CommandGroup = ({
   <CommandPrimitive.Group
     ref={ref}
     className={cn(
-      'overflow-hidden p-1 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium',
+      'overflow-hidden border-b border-divider px-1.5 py-1 last:border-none only:border-none [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium',
       className,
     )}
     {...props}
@@ -153,10 +151,7 @@ const CommandSeparator = ({
 }: React.ComponentProps<typeof CommandPrimitive.Separator>) => (
   <CommandPrimitive.Separator
     ref={ref}
-    className={cn(
-      '-mx-1 h-px bg-gray-400 sidebar:!bg-surface-tertiary dark:bg-gray-650',
-      className,
-    )}
+    className={cn('-mx-1 h-px bg-surface-tertiary', className)}
     {...props}
   />
 )
@@ -170,7 +165,7 @@ const CommandItem = ({
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[selected=true]:bg-gray-400 data-[disabled=true]:opacity-50 sidebar:data-[selected=true]:!bg-surface-tertiary dark:data-[selected=true]:bg-zinc-800',
+      'relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[selected=true]:bg-surface-secondary data-[disabled=true]:opacity-50 primary-card:data-[selected=true]:bg-surface-tertiary',
       className,
     )}
     {...props}

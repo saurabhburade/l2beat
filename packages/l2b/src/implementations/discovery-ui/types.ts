@@ -4,16 +4,23 @@ export type ApiProjectsResponse = ApiProjectEntry[]
 
 export interface ApiProjectEntry {
   name: string
+  addresses: string[]
+  contractNames: string[]
   chains: string[]
 }
 
 export interface ApiProjectResponse {
-  chains: ApiProjectChain[]
+  entries: ApiProjectChain[]
 }
 
 export interface ApiPreviewResponse {
-  permissionsPerChain: { chain: string; permissions: ApiPreviewPermission[] }[]
+  permissionsPerChain: { chain: string; permissions: ApiPreviewPermissions }[]
   contractsPerChain: { chain: string; contracts: ApiPreviewContract[] }[]
+}
+
+export interface ApiPreviewPermissions {
+  roles: ApiPreviewPermission[]
+  actors: ApiPreviewPermission[]
 }
 
 export interface ApiPreviewPermission {
@@ -27,17 +34,21 @@ export interface ApiPreviewContract {
   addresses: AddressFieldValue[]
   name: string
   description: string
+  upgradableBy: UpgradeabilityActor[] | undefined
 }
 
 export interface ApiProjectChain {
-  name: string
+  project: string
+  chain: string
   initialContracts: ApiProjectContract[]
   discoveredContracts: ApiProjectContract[]
   eoas: ApiAddressEntry[]
+  blockNumber: number
 }
 
 export type ApiAddressType =
   | 'EOA'
+  | 'EOAPermissioned'
   | 'Unverified'
   | 'Token'
   | 'Multisig'
@@ -49,9 +60,14 @@ export type ApiAddressType =
 export interface ApiAddressEntry {
   name?: string
   description?: string
+  roles: string[]
   type: ApiAddressType
-  referencedBy: AddressFieldValue[]
+  referencedBy: ApiAddressReference[]
   address: string
+}
+
+export interface ApiAddressReference extends AddressFieldValue {
+  fieldNames: string[]
 }
 
 export interface Field {
@@ -109,7 +125,7 @@ export interface ArrayFieldValue {
 
 export interface ObjectFieldValue {
   type: 'object'
-  value: Record<string, FieldValue>
+  values: [FieldValue, FieldValue][]
 }
 
 export interface UnknownFieldValue {
@@ -123,9 +139,18 @@ export interface ErrorFieldValue {
 }
 
 export interface ApiProjectContract extends ApiAddressEntry {
-  template?: string
+  template?: {
+    id: string
+    shape?: {
+      name: string
+      hasCriteria: boolean
+    }
+  }
+  proxyType?: string
   fields: Field[]
   abis: ApiAbi[]
+  sources: { name: string; code: string }[]
+  implementationNames?: Record<string, string>
 }
 
 export interface ApiAbi {
@@ -140,5 +165,24 @@ export interface ApiAbiEntry {
 }
 
 export interface ApiCodeResponse {
+  entryName: string | undefined
   sources: { name: string; code: string }[]
+}
+
+export interface ApiCodeSearchResponse {
+  matches: {
+    name: string | undefined
+    address: string
+    codeLocation: {
+      line: string
+      fileName: string
+      index: number
+      offset: number
+    }[]
+  }[]
+}
+
+export interface UpgradeabilityActor {
+  name: string
+  delay: string
 }

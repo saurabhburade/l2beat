@@ -1,19 +1,22 @@
 import { createColumnHelper } from '@tanstack/react-table'
 import {
-  TypeCell,
   TypeExplanationTooltip,
-} from '~/components/table/cells/type-cell'
+  TypeInfo,
+} from '~/components/table/cells/type-info'
 import { getScalingCommonProjectColumns } from '~/components/table/utils/common-project-columns/scaling-common-project-columns'
-import { type ScalingUpcomingEntry } from '~/server/features/scaling/upcoming/get-scaling-upcoming-entries'
+import type { ScalingUpcomingEntry } from '~/server/features/scaling/upcoming/get-scaling-upcoming-entries'
 
 const columnHelper = createColumnHelper<ScalingUpcomingEntry>()
 
 export const scalingUpcomingColumns = [
-  ...getScalingCommonProjectColumns(columnHelper),
+  ...getScalingCommonProjectColumns(
+    columnHelper,
+    (row) => `/scaling/projects/${row.slug}`,
+  ),
   columnHelper.accessor('category', {
     header: 'Type',
     cell: (ctx) => (
-      <TypeCell provider={ctx.row.original.provider}>{ctx.getValue()}</TypeCell>
+      <TypeInfo stack={ctx.row.original.stack}>{ctx.getValue()}</TypeInfo>
     ),
     meta: {
       tooltip: <TypeExplanationTooltip />,

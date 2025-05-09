@@ -1,38 +1,68 @@
-import {
-  type BridgeDisplay,
-  type ScalingProjectRiskViewEntry,
-  type WarningWithSentiment,
-  bridges,
+import type {
+  BridgeCategory,
+  Project,
+  ProjectTechnologyChoice,
+  TableReadyValue,
+  WarningWithSentiment,
 } from '@l2beat/config'
-import { compact } from 'lodash'
-import {
-  type ProjectsChangeReport,
-  getProjectsChangeReport,
-} from '../projects-change-report/get-projects-change-report'
-import { compareTvl } from '../scaling/tvl/utils/compare-tvl'
-import {
-  type LatestTvl,
-  get7dTokenBreakdown,
-} from '../scaling/tvl/utils/get-7d-token-breakdown'
-import { getAssociatedTokenWarning } from '../scaling/tvl/utils/get-associated-token-warning'
-import {
-  type CommonBridgesEntry,
-  getCommonBridgesEntry,
-} from './get-common-bridges-entry'
+import { assert } from '@l2beat/shared-pure'
+import compact from 'lodash/compact'
+import { groupByBridgeTabs } from '~/app/(side-nav)/bridges/_utils/group-by-bridge-tabs'
+import { ps } from '~/server/projects'
+import type { ProjectChanges } from '../projects-change-report/get-projects-change-report'
+import { getProjectsChangeReport } from '../projects-change-report/get-projects-change-report'
+import type { ProjectSevenDayTvsBreakdown } from '../scaling/tvs/get-7d-tvs-breakdown'
+import { get7dTvsBreakdown } from '../scaling/tvs/get-7d-tvs-breakdown'
+import { compareTvs } from '../scaling/tvs/utils/compare-tvs'
+import { getAssociatedTokenWarning } from '../scaling/tvs/utils/get-associated-token-warning'
+import type { CommonBridgesEntry } from './get-common-bridges-entry'
+import { getCommonBridgesEntry } from './get-common-bridges-entry'
 
 export async function getBridgesSummaryEntries() {
-  const [tvl7dBreakdown, projectsChangeReport] = await Promise.all([
-    get7dTokenBreakdown({ type: 'bridge' }),
+  const [tvs7dBreakdown, projectsChangeReport, projects] = await Promise.all([
+    get7dTvsBreakdown({ type: 'bridge' }),
     getProjectsChangeReport(),
+    ps.getProjects({
+      select: [
+        'statuses',
+        'bridgeInfo',
+        'bridgeRisks',
+        'tvsInfo',
+        'bridgeTechnology',
+      ],
+      where: ['isBridge'],
+      whereNot: ['isUpcoming', 'archivedAt'],
+    }),
   ])
 
-  return getBridges({
-    tvl7dBreakdown,
-    projectsChangeReport,
-  })
+  const entries = projects
+    .map((project) =>
+      getBridgesSummaryEntry(
+        project,
+        projectsChangeReport.getChanges(project.id),
+        tvs7dBreakdown.projects[project.id.toString()],
+      ),
+    )
+    .sort(compareTvs)
+
+  return groupByBridgeTabs(entries)
 }
 
-interface TvlData {
+export interface BridgesSummaryEntry extends CommonBridgesEntry {
+  type: BridgeCategory
+  tvs: TvsData
+  validatedBy: TableReadyValue
+  livenessFailure: TableReadyValue | undefined
+  sourceUpgradeability: TableReadyValue | undefined
+  tvsOrder: number
+  otherConsiderations: ProjectTechnologyChoice[] | undefined
+  destination: {
+    value: string
+    description?: string
+  }
+}
+
+interface TvsData {
   breakdown:
     | {
         total: number
@@ -47,52 +77,59 @@ interface TvlData {
   warnings: WarningWithSentiment[]
 }
 
-export interface BridgesSummaryEntry extends CommonBridgesEntry {
-  type: BridgeDisplay['category']
-  tvl: TvlData
-  tvlOrder: number
-  validatedBy: ScalingProjectRiskViewEntry
+function getBridgesSummaryEntry(
+  project: Project<
+    'statuses' | 'bridgeInfo' | 'bridgeRisks' | 'tvsInfo' | 'bridgeTechnology'
+  >,
+  changes: ProjectChanges,
+  bridgeTvs: ProjectSevenDayTvsBreakdown | undefined,
+): BridgesSummaryEntry {
+  const associatedTokenWarning =
+    bridgeTvs && bridgeTvs.breakdown.total > 0
+      ? getAssociatedTokenWarning({
+          associatedRatio:
+            bridgeTvs.associated.total / bridgeTvs.breakdown.total,
+          name: project.name,
+          associatedTokens: project.tvsInfo.associatedTokens,
+        })
+      : undefined
+
+  return {
+    ...getCommonBridgesEntry({ project, changes }),
+    type: project.bridgeInfo.category,
+    tvs: {
+      breakdown: bridgeTvs?.breakdown
+        ? {
+            ...bridgeTvs.breakdown,
+            associated: bridgeTvs.associated.total,
+          }
+        : undefined,
+      change: bridgeTvs?.change.total,
+      associatedTokens: project.tvsInfo.associatedTokens,
+      associatedTokenWarning,
+      warnings: compact([
+        associatedTokenWarning?.sentiment === 'bad' && associatedTokenWarning,
+      ]),
+    },
+    destination: getDestination(project.bridgeInfo.destination),
+    validatedBy: project.bridgeRisks.validatedBy,
+    livenessFailure: project.bridgeRisks.livenessFailure,
+    sourceUpgradeability: project.bridgeRisks.sourceUpgradeability,
+    otherConsiderations: project.bridgeTechnology.otherConsiderations,
+    tvsOrder: bridgeTvs?.breakdown.total ?? -1,
+  }
 }
 
-interface Params {
-  tvl7dBreakdown: LatestTvl
-  projectsChangeReport: ProjectsChangeReport
-}
-
-function getBridges(params: Params) {
-  const { tvl7dBreakdown, projectsChangeReport } = params
-  const activeBridges = bridges.filter(
-    (bridge) => !bridge.isArchived && !bridge.isUpcoming,
-  )
-  const entries = activeBridges.map((bridge): BridgesSummaryEntry => {
-    const bridgeTvl = tvl7dBreakdown.projects[bridge.id.toString()]
-
-    const associatedTokenWarning =
-      bridgeTvl && bridgeTvl.breakdown.total > 0
-        ? getAssociatedTokenWarning({
-            associatedRatio:
-              bridgeTvl.breakdown.associated / bridgeTvl.breakdown.total,
-            name: bridge.display.name,
-            associatedTokens: bridge.config.associatedTokens ?? [],
-          })
-        : undefined
-
-    const changes = projectsChangeReport.getChanges(bridge.id)
-    return {
-      ...getCommonBridgesEntry({ bridge, changes }),
-      type: bridge.display.category,
-      tvl: {
-        breakdown: bridgeTvl?.breakdown,
-        change: bridgeTvl?.change,
-        associatedTokens: bridge.config.associatedTokens ?? [],
-        associatedTokenWarning,
-        warnings: compact([
-          associatedTokenWarning?.sentiment === 'bad' && associatedTokenWarning,
-        ]),
-      },
-      tvlOrder: bridgeTvl?.breakdown.total ?? 0,
-      validatedBy: bridge.riskView.validatedBy,
-    }
-  })
-  return entries.sort(compareTvl)
+function getDestination(destinations: string[]): {
+  value: string
+  description?: string
+} {
+  assert(destinations.length > 0, 'Invalid destination')
+  if (destinations.length === 1 && destinations[0]) {
+    return { value: destinations[0] }
+  }
+  return {
+    value: 'Various',
+    description: destinations.join(',\n'),
+  }
 }

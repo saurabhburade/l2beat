@@ -1,7 +1,7 @@
 'use client'
 
-import { ChartTimeRangeControls } from '~/components/chart/core/chart-time-range-controls'
-import { type ActivityTimeRange } from '~/server/features/scaling/activity/utils/range'
+import { ChartTimeRangeControls } from '~/components/core/chart/chart-time-range-controls'
+import type { ActivityTimeRange } from '~/server/features/scaling/activity/utils/range'
 
 interface Props {
   timeRange: ActivityTimeRange
@@ -16,6 +16,7 @@ export function ActivityTimeRangeControls({
 }: Props) {
   return (
     <ChartTimeRangeControls
+      name="activityTimeRange"
       value={timeRange}
       setValue={setTimeRange}
       options={[

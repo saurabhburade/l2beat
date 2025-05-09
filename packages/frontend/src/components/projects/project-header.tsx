@@ -1,23 +1,26 @@
 import Image from 'next/image'
 
-interface Props {
-  title: string
+interface Project {
+  name: string
   slug: string
+  icon: string
 }
 
-export function ProjectHeader(props: Props) {
+export function ProjectHeader({ project }: { project: Project }) {
   return (
     <h1 className="flex items-center justify-start gap-3">
-      {props.slug && (
+      {project.slug && (
         <Image
           className="max-md:size-8"
           width={40}
           height={40}
-          src={`/icons/${props.slug}.png`}
-          alt={`${props.title} logo`}
+          src={project.icon}
+          alt={`${project.name} logo`}
         />
       )}
-      <span className="text-3xl font-bold md:text-4xl">{props.title}</span>
+      <span className="text-3xl font-bold !leading-none md:text-4xl">
+        {project.name}
+      </span>
     </h1>
   )
 }

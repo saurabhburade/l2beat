@@ -8,18 +8,18 @@ import {
   stringAsInt,
 } from '@l2beat/shared-pure'
 
-import { ContractSource } from './IEtherscanClient'
+import type { ContractSource } from './IEtherscanClient'
 
-import { HttpClient } from '@l2beat/shared'
+import type { HttpClient } from '@l2beat/shared'
 import { z } from 'zod'
 import {
   ContractCreatorAndCreationTxHashResult,
   ContractSourceResult,
   OneTransactionListResult,
-  TwentyTransactionListResult,
+  TransactionListResult,
   tryParseEtherscanResponse,
 } from './EtherscanModels'
-import {
+import type {
   EtherscanUnsupportedMethods,
   IEtherscanClient,
 } from './IEtherscanClient'
@@ -46,6 +46,7 @@ export class EtherscanClient implements IEtherscanClient {
     protected readonly apiKey: string,
     protected readonly minTimestamp: UnixTime,
     protected readonly unsupportedMethods: EtherscanUnsupportedMethods = {},
+    protected readonly defaultParams: Record<string, string> = {},
     protected readonly logger = Logger.SILENT,
   ) {
     this.callWithRetries = this.rateLimiter.wrap(
@@ -61,13 +62,15 @@ export class EtherscanClient implements IEtherscanClient {
     url: string,
     apiKey: string,
     unsupportedMethods: EtherscanUnsupportedMethods = {},
+    defaultParams: Record<string, string> = {},
   ): EtherscanClient {
     return new EtherscanClient(
       httpClient,
       url,
       apiKey,
-      new UnixTime(0),
+      0,
       unsupportedMethods,
+      defaultParams,
     )
   }
 
@@ -79,9 +82,9 @@ export class EtherscanClient implements IEtherscanClient {
   //
   // To mitigate this, we need to go back in time by 10 minutes until we find a block
   async getBlockNumberAtOrBefore(timestamp: UnixTime): Promise<number> {
-    let current = new UnixTime(timestamp.toNumber())
+    let current = UnixTime(timestamp)
 
-    while (current.gte(this.minTimestamp)) {
+    while (current >= this.minTimestamp) {
       try {
         const result = await this.callWithRetries('block', 'getblocknobytime', {
           timestamp: current.toString(),
@@ -101,7 +104,7 @@ export class EtherscanClient implements IEtherscanClient {
           throw new Error(errorObject.message)
         }
 
-        current = current.add(-10, 'minutes')
+        current = current - 10 * UnixTime.MINUTE
       }
     }
 
@@ -197,57 +200,32 @@ export class EtherscanClient implements IEtherscanClient {
     const resp = OneTransactionListResult.parse(response)[0]
     assert(resp)
 
-    return new UnixTime(parseInt(resp.timeStamp, 10))
+    return UnixTime(parseInt(resp.timeStamp, 10))
   }
 
-  async getLast10OutgoingTxs(
+  async getAtMost10RecentOutgoingTxs(
     address: EthereumAddress,
     blockNumber: number,
   ): Promise<{ input: string; to: EthereumAddress; hash: Hash256 }[]> {
-    // NOTE(radomski): There is a retry here because Etherscan sometimes
-    // responds with 200, no error, everything is supposed to be fine but the
-    // amount of txs they returns is less then expected. This happens every
-    // so often, but makes our UpdateMonitor channel rife with processing
-    // errors
-    let attempts = 0
-    while (true) {
-      try {
-        const response = await this.callWithRetries('account', 'txlist', {
-          address: address.toString(),
-          startblock: '0',
-          endblock: blockNumber.toString(),
-          page: '1',
-          offset: '20',
-          sort: 'desc',
-        })
+    const response = await this.callWithRetries('account', 'txlist', {
+      address: address.toString(),
+      startblock: '0',
+      endblock: blockNumber.toString(),
+      page: '1',
+      offset: '50',
+      sort: 'desc',
+    })
 
-        const resp = TwentyTransactionListResult.parse(response)
-        assert(resp)
-        const outgoingTxs = resp
-          .filter((tx) => EthereumAddress(tx.from) === address)
-          .slice(0, 10)
+    const resp = TransactionListResult.parse(response)
+    const outgoingTxs = resp
+      .filter((tx) => EthereumAddress(tx.from) === address)
+      .slice(0, 10)
 
-        assert(
-          outgoingTxs.length === 10,
-          'Not enough outgoing transactions, expected 10, received ' +
-            outgoingTxs.length.toString(),
-        )
-
-        return outgoingTxs.map((r) => ({
-          input: r.input,
-          to: EthereumAddress(r.to),
-          hash: Hash256(r.hash),
-        }))
-      } catch (error) {
-        attempts++
-        const result = shouldRetry(attempts, error)
-        if (result.shouldStop) {
-          throw error
-        }
-        this.logger.warn('Retrying', { attempts, error })
-        await new Promise((resolve) => setTimeout(resolve, result.executeAfter))
-      }
-    }
+    return outgoingTxs.map((r) => ({
+      input: r.input,
+      to: EthereumAddress(r.to),
+      hash: Hash256(r.hash),
+    }))
   }
 
   async callWithRetries(
@@ -276,10 +254,15 @@ export class EtherscanClient implements IEtherscanClient {
     action: string,
     params: Record<string, string>,
   ): Promise<unknown> {
+    const queryParams = {
+      ...this.defaultParams,
+      ...params,
+    }
+
     const query = new URLSearchParams({
       module,
       action,
-      ...params,
+      ...queryParams,
       apikey: this.apiKey,
     })
     const url = `${this.url}?${query.toString()}`

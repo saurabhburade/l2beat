@@ -1,4 +1,3 @@
-import { ContractValue, ProxyDetails } from '@l2beat/discovery-types'
 import {
   assert,
   Bytes,
@@ -6,12 +5,14 @@ import {
   Hash256,
   UnixTime,
 } from '@l2beat/shared-pure'
-import { BigNumber, providers, utils } from 'ethers'
+import { BigNumber, type providers, utils } from 'ethers'
+import type { ContractValue } from '../../output/types'
+import type { ProxyDetails } from '../types'
 
-import { Semver, parseSemver } from '../../../utils/semver'
-import { IProvider } from '../../provider/IProvider'
+import { type Semver, parseSemver } from '../../../utils/semver'
+import type { IProvider } from '../../provider/IProvider'
 
-import { DateAddresses } from '../pastUpgrades'
+import type { DateAddresses } from '../pastUpgrades'
 import { getProxyGovernance } from './StarkWareProxyGovernance'
 
 // keccak256("StarkWare2019.implementation-slot")
@@ -115,10 +116,7 @@ async function getPastProxyUpgrades(
   )
   assert(blocks.every((b) => b !== undefined))
   const dateMap = Object.fromEntries(
-    blocks.map((b) => [
-      b.number,
-      new UnixTime(b.timestamp).toDate().toISOString(),
-    ]),
+    blocks.map((b) => [b.number, UnixTime.toDate(b.timestamp).toISOString()]),
   )
 
   return logs.map((l) => {
@@ -206,10 +204,7 @@ async function getPastDiamondUpgrades(
   )
   assert(blocks.every((b) => b !== undefined))
   const dateMap = Object.fromEntries(
-    blocks.map((b) => [
-      b.number,
-      new UnixTime(b.timestamp).toDate().toISOString(),
-    ]),
+    blocks.map((b) => [b.number, UnixTime.toDate(b.timestamp).toISOString()]),
   )
 
   return await Promise.all(

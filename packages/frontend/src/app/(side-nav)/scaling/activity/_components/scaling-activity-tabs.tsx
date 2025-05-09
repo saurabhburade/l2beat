@@ -1,9 +1,9 @@
 'use client'
-import { type Milestone } from '@l2beat/config'
-import { ProjectId } from '@l2beat/shared-pure'
+import type { Milestone } from '@l2beat/config'
 import { useMemo } from 'react'
+import type { TabbedScalingEntries } from '~/app/(side-nav)/scaling/_utils/group-by-scaling-tabs'
 import { CountBadge } from '~/components/badge/count-badge'
-import { ActivityChart } from '~/components/chart/activity/activity-chart'
+import { ScalingActivityChart } from '~/components/chart/activity/scaling-activity-chart'
 import {
   DirectoryTabs,
   DirectoryTabsContent,
@@ -12,45 +12,51 @@ import {
 } from '~/components/core/directory-tabs'
 import { HorizontalSeparator } from '~/components/core/horizontal-separator'
 import { OtherMigrationTabNotice } from '~/components/countdowns/other-migration/other-migration-tab-notice'
+import { useRecategorisationPreviewContext } from '~/components/recategorisation-preview/recategorisation-preview-provider'
 import {
   OthersInfo,
   RollupsInfo,
   ValidiumsAndOptimiumsInfo,
 } from '~/components/scaling-tabs-info'
+import { TableFilters } from '~/components/table/filters/table-filters'
+import { useFilterEntries } from '~/components/table/filters/use-filter-entries'
 import { TableSortingProvider } from '~/components/table/sorting/table-sorting-context'
-import { type ScalingActivityEntry } from '~/server/features/scaling/activity/get-scaling-activity-entries'
-import { type TabbedScalingEntries } from '~/utils/group-by-tabs'
-import { ScalingActivityFilters } from '../../_components/scaling-activity-filters'
-import { useScalingFilter } from '../../_components/scaling-filter-context'
+import type { ScalingActivityEntry } from '~/server/features/scaling/activity/get-scaling-activity-entries'
+import { UopsExplorerLink } from '../../_components/uops-explorer-link'
+import { getRecategorisedEntries } from '../../_utils/get-recategorised-entries'
 import { ScalingActivityTable } from './table/scaling-activity-table'
 
 type Props = TabbedScalingEntries<ScalingActivityEntry> & {
   milestones: Milestone[]
 }
 
-export function ScalingActivityTabs({
-  rollups,
-  validiumsAndOptimiums,
-  others,
-  milestones,
-}: Props) {
-  const includeFilters = useScalingFilter()
+export function ScalingActivityTabs(props: Props) {
+  const filterEntries = useFilterEntries()
+  const { checked } = useRecategorisationPreviewContext()
 
   const filteredEntries = {
-    rollups: rollups.filter(includeFilters),
-    validiumsAndOptimiums: validiumsAndOptimiums.filter(includeFilters),
-    others: others.filter(includeFilters),
+    rollups: props.rollups.filter(filterEntries),
+    validiumsAndOptimiums: props.validiumsAndOptimiums.filter(filterEntries),
+    others: props.others.filter(filterEntries),
   }
+
+  const entries = checked
+    ? // No need to sort because it is done later by TPS/UOPS switch
+      getRecategorisedEntries(filteredEntries, undefined)
+    : filteredEntries
 
   const projectToBeMigratedToOthers = useMemo(
     () =>
-      [...rollups, ...validiumsAndOptimiums, ...others]
-        .filter((project) => project.statuses?.countdowns?.otherMigration)
-        .map((project) => ({
-          slug: project.slug,
-          name: project.name,
-        })),
-    [others, rollups, validiumsAndOptimiums],
+      checked
+        ? []
+        : [...props.rollups, ...props.validiumsAndOptimiums, ...props.others]
+            .filter((project) => project.statuses?.countdowns?.otherMigration)
+            .map((project) => ({
+              slug: project.slug,
+              name: project.name,
+              icon: project.icon,
+            })),
+    [checked, props.others, props.rollups, props.validiumsAndOptimiums],
   )
 
   const initialSort = {
@@ -58,90 +64,76 @@ export function ScalingActivityTabs({
     desc: true,
   }
 
-  const showOthers =
-    filteredEntries.others.length > 0 &&
-    !filteredEntries.others.every((e) => !e.data || e.id === ProjectId.ETHEREUM)
-
   return (
     <>
-      <ScalingActivityFilters
-        items={[
-          ...filteredEntries.rollups,
-          ...filteredEntries.validiumsAndOptimiums,
-          ...filteredEntries.others,
-        ]}
-        className="max-md:mt-4"
-      />
+      <div className="mr-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-2 md:mr-0">
+        <TableFilters
+          entries={[
+            ...props.rollups,
+            ...props.validiumsAndOptimiums,
+            ...props.others,
+          ]}
+        />
+        <UopsExplorerLink />
+      </div>
       <DirectoryTabs defaultValue="rollups">
         <DirectoryTabsList>
           <DirectoryTabsTrigger value="rollups">
-            Rollups{' '}
-            <CountBadge>{filteredEntries.rollups.length - 1}</CountBadge>
+            Rollups <CountBadge>{entries.rollups.length - 1}</CountBadge>
           </DirectoryTabsTrigger>
-          <DirectoryTabsTrigger value="validiums-and-optimiums">
+          <DirectoryTabsTrigger value="validiumsAndOptimiums">
             Validiums & Optimiums{' '}
-            <CountBadge>
-              {filteredEntries.validiumsAndOptimiums.length - 1}
-            </CountBadge>
+            <CountBadge>{entries.validiumsAndOptimiums.length - 1}</CountBadge>
           </DirectoryTabsTrigger>
-          {showOthers && (
-            <DirectoryTabsTrigger value="others">
-              Others <CountBadge>{filteredEntries.others.length}</CountBadge>
-            </DirectoryTabsTrigger>
-          )}
+          <DirectoryTabsTrigger value="others">
+            Others <CountBadge>{entries.others.length}</CountBadge>
+          </DirectoryTabsTrigger>
         </DirectoryTabsList>
         <TableSortingProvider initialSort={initialSort}>
-          <DirectoryTabsContent value="rollups" className="main-page-card pt-5">
-            <ActivityChart
-              milestones={milestones}
-              entries={rollups}
+          <DirectoryTabsContent value="rollups" className="pt-4 sm:pt-3">
+            <RollupsInfo />
+            <ScalingActivityChart
+              entries={entries.rollups}
+              milestones={props.milestones}
               type="Rollups"
             />
             <HorizontalSeparator className="mb-3 mt-5" />
-            <RollupsInfo />
-            <ScalingActivityTable entries={filteredEntries.rollups} rollups />
+            <ScalingActivityTable entries={entries.rollups} rollups />
           </DirectoryTabsContent>
         </TableSortingProvider>
         <TableSortingProvider initialSort={initialSort}>
           <DirectoryTabsContent
-            value="validiums-and-optimiums"
-            className="main-page-card pt-5"
+            value="validiumsAndOptimiums"
+            className="pt-4 sm:pt-3"
           >
-            <ActivityChart
-              milestones={milestones}
-              entries={validiumsAndOptimiums}
+            <ValidiumsAndOptimiumsInfo />
+            <ScalingActivityChart
+              entries={entries.validiumsAndOptimiums}
+              milestones={props.milestones}
               hideScalingFactor
               type="ValidiumsAndOptimiums"
             />
             <HorizontalSeparator className="mb-3 mt-5" />
-            <ValidiumsAndOptimiumsInfo />
-            <ScalingActivityTable
-              entries={filteredEntries.validiumsAndOptimiums}
+            <ScalingActivityTable entries={entries.validiumsAndOptimiums} />
+          </DirectoryTabsContent>
+        </TableSortingProvider>
+        <TableSortingProvider initialSort={initialSort}>
+          <DirectoryTabsContent value="others" className="pt-4 sm:pt-3">
+            <OthersInfo />
+            <ScalingActivityChart
+              entries={entries.others}
+              milestones={props.milestones}
+              hideScalingFactor
+              type="Others"
+            />
+            <HorizontalSeparator className="mb-3 mt-5" />
+            <ScalingActivityTable entries={entries.others} />
+            <OtherMigrationTabNotice
+              projectsToBeMigrated={projectToBeMigratedToOthers}
+              className="mt-2"
             />
           </DirectoryTabsContent>
         </TableSortingProvider>
-        {showOthers && (
-          <TableSortingProvider initialSort={initialSort}>
-            <DirectoryTabsContent
-              value="others"
-              className="main-page-card pt-5"
-            >
-              <ActivityChart
-                milestones={milestones}
-                entries={others ?? []}
-                hideScalingFactor
-                type="Others"
-              />
-              <HorizontalSeparator className="mb-3 mt-5" />
-              <OthersInfo />
-              <ScalingActivityTable entries={filteredEntries.others} />
-              <OtherMigrationTabNotice
-                projectsToBeMigrated={projectToBeMigratedToOthers}
-                className="mt-2"
-              />
-            </DirectoryTabsContent>
-          </TableSortingProvider>
-        )}
       </DirectoryTabs>
     </>
   )

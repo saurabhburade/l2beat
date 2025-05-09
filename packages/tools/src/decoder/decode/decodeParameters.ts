@@ -3,14 +3,14 @@ import {
   encodeAbiParameters,
   parseAbiParameters,
 } from 'viem'
-import { DecodedResult } from './DecodedResult'
+import type { DecodedResult } from './DecodedResult'
 import { mix } from './mix'
 
 export function decodeParameters(
   data: `0x${string}`,
   abi: string,
 ): DecodedResult {
-  const parameters = parseAbiParameters(abi.slice(1, -1))
+  const parameters = parseAbiParameters(abi)
 
   const decoded = decodeAbiParameters(parameters, data)
   const values = mix(parameters, decoded)

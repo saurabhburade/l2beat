@@ -1,19 +1,21 @@
 import { useQuery } from '@tanstack/react-query'
-import { ReactNode, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { getProject } from '../api/api'
-import {
+import type {
   ApiAddressEntry,
   ApiProjectChain,
   ApiProjectContract,
 } from '../api/types'
 import { AddressIcon } from '../common/AddressIcon'
-import { IconChevronDown } from '../icons/IconChevronDown'
-import { IconChevronRight } from '../icons/IconChevronRight'
+import { isReadOnly } from '../config'
+import { IconCopy } from '../icons/IconCopy'
+import { IconTick } from '../icons/IconTick'
 import { usePanelStore } from '../store/store'
 import { AbiDisplay } from './AbiDisplay'
 import { AddressDisplay } from './AddressDisplay'
 import { FieldDisplay } from './Field'
+import { Folder } from './Folder'
 
 export function ValuesPanel() {
   const { project } = useParams()
@@ -33,12 +35,18 @@ export function ValuesPanel() {
     return <div>Error</div>
   }
 
-  const selected = findSelected(response.data.chains, selectedAddress)
+  const selected = findSelected(response.data.entries, selectedAddress)
 
   return (
     <div className="h-full w-full overflow-x-auto">
       {!selected && <div>Select a contract</div>}
-      {selected && <Display selected={selected} />}
+      {selected && (
+        <Display
+          selected={selected}
+          chain={selected.chain}
+          blockNumber={selected.blockNumber}
+        />
+      )}
     </div>
   )
 }
@@ -50,17 +58,29 @@ function findSelected(chains: ApiProjectChain[], address: string | undefined) {
   for (const chain of chains) {
     for (const contract of chain.initialContracts) {
       if (contract.address === address) {
-        return contract
+        return {
+          ...contract,
+          chain: chain.chain,
+          blockNumber: chain.blockNumber,
+        }
       }
     }
     for (const contract of chain.discoveredContracts) {
       if (contract.address === address) {
-        return contract
+        return {
+          ...contract,
+          chain: chain.chain,
+          blockNumber: chain.blockNumber,
+        }
       }
     }
     for (const eoa of chain.eoas) {
       if (eoa.address === address) {
-        return eoa
+        return {
+          ...eoa,
+          chain: chain.chain,
+          blockNumber: chain.blockNumber,
+        }
       }
     }
   }
@@ -68,21 +88,38 @@ function findSelected(chains: ApiProjectChain[], address: string | undefined) {
 
 function Display({
   selected,
-}: { selected: ApiProjectContract | ApiAddressEntry }) {
+  chain,
+  blockNumber,
+}: {
+  selected: ApiProjectContract | ApiAddressEntry
+  chain: string
+  blockNumber: number
+}) {
+  const address = getAddressToCopy(selected)
+
+  const copy = address && canCopy(selected) && !isReadOnly && (
+    <CopyAddShapeCommand
+      chain={chain}
+      address={address}
+      name={selected.name}
+      blockNumber={blockNumber}
+    />
+  )
+
   return (
     <>
       <div id={selected.address} className="mb-2 px-5 text-lg">
-        <p className="flex items-center gap-1 font-bold">
-          <AddressIcon type={selected.type} />{' '}
-          {selected.name ??
-            (selected.type === 'Unverified' ? 'Unverified' : 'Unknown')}
-        </p>
-        {'template' in selected && selected.template && (
-          <p className="font-mono text-aux-orange text-xs">
-            template/{selected.template}
+        <p className="flex items-center">
+          <p className="flex items-center gap-1 font-bold">
+            <AddressIcon type={selected.type} />
+            {selected.name ?? 'Unknown'}
+            {selected.type === 'Unverified' && (
+              <span className="text-aux-red"> (Unverified)</span>
+            )}
           </p>
-        )}
-        <div className="font-mono text-xs">
+          {copy}
+        </p>
+        <WithHeadline headline="Address">
           <AddressDisplay
             simplified
             value={{
@@ -91,19 +128,85 @@ function Display({
               addressType: selected.type,
             }}
           />
-        </div>
+        </WithHeadline>
+        {'proxyType' in selected && selected.proxyType && (
+          <WithHeadline headline="Proxy Type">
+            <p className="text-aux-cyan">{selected.proxyType}</p>
+          </WithHeadline>
+        )}
+        {'template' in selected && selected.template && (
+          <>
+            <WithHeadline headline="Template">
+              <div className="flex flex-col gap-0.5 text-aux-orange">
+                <span className="inline font-bold">{selected.template.id}</span>
+              </div>
+            </WithHeadline>
+            {selected.template.shape && (
+              <WithHeadline headline="Shape">
+                <div className="flex flex-col gap-0.5 text-aux-orange">
+                  <span className="flex items-center gap-1">
+                    {selected.template.shape.name}
+                    {selected.template.shape.hasCriteria && (
+                      <Badge className="bg-aux-yellow/10 px-1 py-0.5 text-aux-yellow">
+                        + Criteria
+                      </Badge>
+                    )}
+                  </span>
+                </div>
+              </WithHeadline>
+            )}
+          </>
+        )}
+
+        {selected.roles.length > 0 && (
+          <div className="font-mono text-xs">
+            <WithHeadline headline="Roles">
+              <div className="flex gap-1">
+                {selected.roles.map((role) => (
+                  <p className="text-aux-teal ">{role}</p>
+                ))}
+              </div>
+            </WithHeadline>
+          </div>
+        )}
+
         {selected.description && (
-          <p className="pt-1 pb-1 font-serif text-sm italic">
-            {selected.description}
-          </p>
+          <WithHeadline headline="Description">
+            <p className="font-serif text-sm italic">{selected.description}</p>
+          </WithHeadline>
         )}
       </div>
+      {'implementationNames' in selected && selected.implementationNames && (
+        <Folder title="Implementation names" collapsed={true}>
+          <div className="bg-coffee-900 px-5 py-2 font-mono text-sm">
+            {Object.entries(selected.implementationNames).map(
+              ([key, value]) => (
+                <div key={key} className="mb-1 flex items-center gap-2">
+                  <span className="text-coffee-400">{key}:</span>
+                  <span className="text-aux-cyan">{value}</span>
+                </div>
+              ),
+            )}
+          </div>
+        </Folder>
+      )}
+
       {selected.referencedBy.length > 0 && (
         <Folder title="Referenced by">
           <ol className="bg-coffee-900 py-0.5 pl-5">
             {selected.referencedBy.map((value) => (
               <li key={value.address}>
                 <AddressDisplay value={value} />
+                <div className="mt-1 mb-2 ml-4 text-xs">
+                  {value.fieldNames.map((fieldName, i) => (
+                    <span
+                      key={i}
+                      className="mr-2 inline-block rounded bg-coffee-800 px-1.5 py-0.5"
+                    >
+                      {fieldName}
+                    </span>
+                  ))}
+                </div>
               </li>
             ))}
           </ol>
@@ -127,24 +230,102 @@ function Display({
   )
 }
 
-function Folder(props: {
-  title: string
-  children: ReactNode
-  collapsed?: boolean
+function CopyAddShapeCommand(props: {
+  chain: string
+  address: string
+  blockNumber: number
+  name?: string
 }) {
-  const [open, setOpen] = useState(!props.collapsed)
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    if (copied) {
+      const command = `l2b add-shape ${props.chain} ${props.address} ${props.blockNumber} "${props.name ?? '<NAME>'}.sol" <TEMPLATE_NAME>`
+
+      void navigator.clipboard.writeText(command)
+      const timeout = setTimeout(() => setCopied(false), 1000)
+      return () => clearTimeout(timeout)
+    }
+  }, [props, copied, setCopied])
 
   return (
-    <div className="border-coffee-600 border-t">
-      <button
-        onClick={() => setOpen((open) => !open)}
-        className="flex h-[22px] w-full cursor-pointer select-none items-center gap-1 font-bold text-xs uppercase"
-      >
-        {open && <IconChevronDown />}
-        {!open && <IconChevronRight />}
-        {props.title}
-      </button>
-      {open && props.children}
+    <button
+      className="flex items-center justify-center gap-1 px-2 py-1 text-coffee-400 text-xs underline underline-offset-2 hover:text-coffee-300"
+      onClick={(e) => {
+        e.preventDefault()
+        setCopied(true)
+      }}
+    >
+      Copy shape command
+      {!copied && <IconCopy className="text-coffee-400" />}
+      {copied && <IconTick className="text-aux-green" />}
+    </button>
+  )
+}
+
+function getAddressToCopy(selected: ApiProjectContract | ApiAddressEntry) {
+  const address = findAddressToCopy(selected)
+
+  if (!address) {
+    return
+  }
+  // biome-ignore lint/style/noNonNullAssertion: it's there
+  return address.split(':')[1]!
+}
+
+function findAddressToCopy(selected: ApiProjectContract | ApiAddressEntry) {
+  const hasFields = 'fields' in selected && selected.fields.length > 0
+
+  if (!hasFields) {
+    return selected.address
+  }
+
+  const implementations = selected.fields.find(
+    (field) => field.name === '$implementation',
+  )
+
+  if (!implementations) {
+    return selected.address
+  }
+
+  if (implementations.value.type === 'address') {
+    return implementations.value.address
+  }
+
+  if (implementations.value.type === 'array') {
+    // skipping the array type explicity
+    return
+  }
+
+  return selected.address
+}
+
+function canCopy(selected: ApiProjectContract | ApiAddressEntry) {
+  return (
+    selected.type !== 'Unverified' &&
+    selected.type !== 'Unknown' &&
+    selected.type !== 'EOA'
+  )
+}
+
+function Badge(props: { children: React.ReactNode; className?: string }) {
+  return (
+    <span
+      className={`flex max-w-fit items-center justify-center gap-1 rounded-md px-2 py-0.5 text-xs ${props.className}`}
+    >
+      {props.children}
+    </span>
+  )
+}
+
+function WithHeadline(props: {
+  headline: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="mb-1 flex flex-col font-mono text-xs">
+      <span className="text-coffee-400">{props.headline}</span>
+      {props.children}
     </div>
   )
 }

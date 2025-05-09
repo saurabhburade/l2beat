@@ -1,11 +1,10 @@
-import { Logger } from '@l2beat/backend-tools'
-
-import { daEconomicSecurityMeta } from '@l2beat/config'
-import { Database } from '@l2beat/database'
-import { CoingeckoClient } from '@l2beat/shared'
+import type { Logger } from '@l2beat/backend-tools'
+import type { Database } from '@l2beat/database'
+import type { CoingeckoClient } from '@l2beat/shared'
 import { assert } from '@l2beat/shared-pure'
 import { z } from 'zod'
-import { Clock } from '../../tools/Clock'
+import type { DaBeatConfig } from '../../config/Config'
+import type { Clock } from '../../tools/Clock'
 import { TaskQueue } from '../../tools/queue/TaskQueue'
 
 export class DaBeatPricesRefresher {
@@ -13,6 +12,7 @@ export class DaBeatPricesRefresher {
   constructor(
     private readonly database: Database,
     private readonly coingeckoClient: CoingeckoClient,
+    private readonly config: DaBeatConfig,
     private readonly clock: Clock,
     private readonly logger: Logger,
   ) {
@@ -35,10 +35,7 @@ export class DaBeatPricesRefresher {
   }
 
   private async refresh() {
-    const coingeckoIds = Object.values(daEconomicSecurityMeta).map(
-      ({ coingeckoId }) => coingeckoId,
-    )
-    assert(coingeckoIds.length <= 100, 'Too many ids')
+    assert(this.config.coingeckoIds.length <= 100, 'Too many ids')
     const result = z
       .array(
         z.object({
@@ -49,7 +46,7 @@ export class DaBeatPricesRefresher {
       .parse(
         await this.coingeckoClient.query('/coins/markets', {
           vs_currency: 'usd',
-          ids: coingeckoIds.join(','),
+          ids: this.config.coingeckoIds.join(','),
         }),
       )
 

@@ -1,6 +1,6 @@
 import { UnixTime } from '@l2beat/shared-pure'
-import { Insertable, Selectable } from 'kysely'
-import { IndexerState } from '../../kysely/generated/types'
+import type { Insertable, Selectable } from 'kysely'
+import type { IndexerState } from '../../kysely/generated/types'
 
 export interface IndexerStateRecord {
   indexerId: string
@@ -14,7 +14,10 @@ export interface IndexerStateRecord {
 export function toRow(record: IndexerStateRecord): Insertable<IndexerState> {
   return {
     ...record,
-    minTimestamp: record.minTimestamp?.toDate(),
+    minTimestamp:
+      record.minTimestamp !== undefined
+        ? UnixTime.toDate(record.minTimestamp)
+        : undefined,
   }
 }
 

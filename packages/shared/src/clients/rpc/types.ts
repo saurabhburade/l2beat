@@ -1,5 +1,12 @@
-import { assert, Bytes, EthereumAddress, HEX_REGEX } from '@l2beat/shared-pure'
+import {
+  assert,
+  type Bytes,
+  type EthereumAddress,
+  HEX_REGEX,
+} from '@l2beat/shared-pure'
 import { z } from 'zod'
+
+export const RpcResponse = z.object({ id: z.string(), result: z.unknown() })
 
 export const Quantity = {
   decode: z.preprocess((s) => {
@@ -90,9 +97,8 @@ export const EVMCallResponse = z.object({
 })
 
 export interface CallParameters {
-  from?: EthereumAddress
   to: EthereumAddress
-  data?: Bytes
+  data: Bytes
 }
 
 export type RPCError = z.infer<typeof RPCError>

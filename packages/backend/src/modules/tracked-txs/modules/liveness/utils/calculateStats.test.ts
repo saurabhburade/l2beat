@@ -1,7 +1,7 @@
 import { UnixTime } from '@l2beat/shared-pure'
 import { expect, mockObject } from 'earl'
-import { LivenessRecordWithConfig } from '../services/LivenessWithConfigService'
-import { Interval } from './calculateIntervals'
+import type { LivenessRecordWithConfig } from '../services/LivenessWithConfigService'
+import type { Interval } from './calculateIntervals'
 import { calculateStats } from './calculateStats'
 
 describe(calculateStats.name, () => {
@@ -11,21 +11,21 @@ describe(calculateStats.name, () => {
       {
         record: mockObject<LivenessRecordWithConfig>({
           subtype: 'batchSubmissions',
-          timestamp: NOW.add(-1, 'days'),
+          timestamp: NOW - 1 * UnixTime.DAY,
         }),
         duration: 10,
       },
       {
         record: mockObject<LivenessRecordWithConfig>({
           subtype: 'batchSubmissions',
-          timestamp: NOW.add(-10, 'days'),
+          timestamp: NOW - 10 * UnixTime.DAY,
         }),
         duration: 20,
       },
       {
         record: mockObject<LivenessRecordWithConfig>({
           subtype: 'batchSubmissions',
-          timestamp: NOW.add(-40, 'days'),
+          timestamp: NOW - 40 * UnixTime.DAY,
         }),
         duration: 30,
       },

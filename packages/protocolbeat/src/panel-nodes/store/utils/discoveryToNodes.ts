@@ -1,5 +1,5 @@
-import { ApiAddressType } from '../../../api/types'
-import { Field, Node } from '../State'
+import type { ApiAddressType } from '../../../api/types'
+import type { Field, Node } from '../State'
 import type { DiscoveryContract, DiscoveryOutput } from './parseDiscovery'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
@@ -25,33 +25,43 @@ function isChainAddress(value: string): boolean {
 export function discoveryToNodes(discovery: DiscoveryOutput): Node[] {
   const chain = discovery.chain
 
-  const contractNodes = discovery.contracts.map((contract): Node => {
-    const implementations = getAsStringArray(contract.values?.$implementation)
-    const { addressType, name } = getDisplay(contract, implementations)
-    return {
-      id: encodeChainAddress(chain, contract.address),
-      address: contract.address,
-      addressType,
-      name,
-      box: { x: 0, y: 0, width: 0, height: 0 },
-      color: 0,
-      fields: mapFields(contract.values, chain, implementations),
-      data: contract,
-    }
-  })
+  const contractNodes = discovery.entries
+    .filter((e) => e.type === 'Contract')
+    .map((contract): Node => {
+      const implementations = getAsStringArray(contract.values?.$implementation)
+      const { addressType, name } = getDisplay(contract, implementations)
+      return {
+        id: encodeChainAddress(chain, contract.address),
+        address: contract.address,
+        isInitial: false,
+        addressType,
+        name,
+        box: { x: 0, y: 0, width: 0, height: 0 },
+        color: 0,
+        hueShift: 0,
+        fields: mapFields(contract.values, chain, implementations),
+        hiddenFields: [],
+        data: contract,
+      }
+    })
 
-  const eoaNodes = discovery.eoas.map(
-    (eoa): Node => ({
-      id: encodeChainAddress(chain, eoa.address),
-      address: eoa.address,
-      addressType: 'EOA',
-      name: `EOA ${eoa.address.slice(0, 6)}…${eoa.address.slice(-4)}`,
-      box: { x: 0, y: 0, width: 0, height: 0 },
-      color: 0,
-      fields: [],
-      data: eoa,
-    }),
-  )
+  const eoaNodes = discovery.entries
+    .filter((e) => e.type === 'EOA')
+    .map(
+      (eoa): Node => ({
+        id: encodeChainAddress(chain, eoa.address),
+        address: eoa.address,
+        isInitial: false,
+        addressType: 'EOA',
+        name: `EOA ${eoa.address.slice(0, 6)}…${eoa.address.slice(-4)}`,
+        box: { x: 0, y: 0, width: 0, height: 0 },
+        color: 0,
+        hueShift: 0,
+        fields: [],
+        hiddenFields: [],
+        data: eoa,
+      }),
+    )
 
   return [...contractNodes, ...eoaNodes]
 }
@@ -134,14 +144,20 @@ function getDisplay(
       name,
     }
   }
-  if (contract.proxyType === 'gnosis safe') {
+  if (isMultisigLike(contract)) {
     const threshold = contract.values?.['$threshold'] as number
     const members = (contract.values?.['$members'] as string[]).length
     const percentage = ((threshold / members) * 100).toFixed(0)
 
+    const nodeName = [
+      `${threshold}/${members}`,
+      ...(threshold === members ? [] : [`${percentage}%`]),
+      name,
+    ].join(' ')
+
     return {
       addressType: 'Multisig',
-      name: `${name} [${threshold}/${members} @ ${percentage}%]`,
+      name: nodeName,
     }
   }
   return { addressType: 'Contract', name }
@@ -155,4 +171,17 @@ function getAsStringArray(value: unknown): string[] {
     return value.filter((x) => typeof x === 'string')
   }
   return []
+}
+
+// TODO(radomski): Duplicated from config/ProjectDiscovery.ts
+// We should come up with a way to distinguish contract properties
+function isMultisigLike(contract: DiscoveryContract | undefined): boolean {
+  if (contract === undefined) {
+    return false
+  }
+
+  const hasMembers = contract.values?.['$members'] !== undefined
+  const hasThreshold = contract.values?.['$threshold'] !== undefined
+
+  return hasMembers && hasThreshold
 }

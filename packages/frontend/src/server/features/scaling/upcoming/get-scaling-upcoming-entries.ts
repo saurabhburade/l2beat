@@ -1,34 +1,41 @@
-import { type Layer2, type Layer3, layer2s, layer3s } from '@l2beat/config'
-import { assert } from '@l2beat/shared-pure'
-import { groupByTabs } from '~/utils/group-by-tabs'
+import type {
+  Project,
+  ProjectScalingCategory,
+  ProjectScalingStack,
+} from '@l2beat/config'
+import { groupByScalingTabs } from '~/app/(side-nav)/scaling/_utils/group-by-scaling-tabs'
+import { ps } from '~/server/projects'
+import type { CommonScalingEntry } from '../get-common-scaling-entry'
 import { getCommonScalingEntry } from '../get-common-scaling-entry'
 
-export function getScalingUpcomingEntries() {
-  const projects = [...layer2s, ...layer3s].filter((p) => p.isUpcoming)
+export async function getScalingUpcomingEntries() {
+  const projects = await ps.getProjects({
+    select: ['statuses', 'scalingInfo', 'display'],
+    where: ['isScaling', 'isUpcoming'],
+  })
 
   const entries = projects
-    .sort((a, b) => {
-      assert(
-        a.createdAt && b.createdAt,
-        'Project has no createdAt although it is upcoming',
-      )
-      return b.createdAt.toNumber() - a.createdAt.toNumber()
-    })
     .map((project) => getScalingUpcomingEntry(project))
+    .sort((a, b) => b.initialOrder - a.initialOrder)
 
-  return groupByTabs(entries)
+  return groupByScalingTabs(entries)
 }
 
-export type ScalingUpcomingEntry = ReturnType<typeof getScalingUpcomingEntry>
-function getScalingUpcomingEntry(project: Layer2 | Layer3) {
+export interface ScalingUpcomingEntry extends CommonScalingEntry {
+  initialOrder: number
+  category: ProjectScalingCategory
+  stack: ProjectScalingStack | undefined
+  purposes: string[]
+}
+
+function getScalingUpcomingEntry(
+  project: Project<'scalingInfo' | 'statuses' | 'display'>,
+): ScalingUpcomingEntry {
   return {
-    ...getCommonScalingEntry({
-      project,
-      changes: undefined,
-      syncStatus: undefined,
-    }),
-    category: project.display.category,
-    provider: project.display.provider,
-    purposes: project.display.purposes,
+    ...getCommonScalingEntry({ project, changes: undefined }),
+    category: project.scalingInfo.type,
+    stack: project.scalingInfo.stack,
+    purposes: project.scalingInfo.purposes,
+    initialOrder: project.addedAt,
   }
 }

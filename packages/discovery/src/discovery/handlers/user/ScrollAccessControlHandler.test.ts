@@ -1,8 +1,8 @@
 import { assert, Bytes, EthereumAddress } from '@l2beat/shared-pure'
 import { expect, mockFn, mockObject } from 'earl'
-import { providers, utils } from 'ethers'
+import { type providers, utils } from 'ethers'
 
-import { IProvider } from '../../provider/IProvider'
+import type { IProvider } from '../../provider/IProvider'
 import { ScrollAccessControlHandler } from './ScrollAccessControlHandler'
 
 describe(ScrollAccessControlHandler.name, () => {
@@ -90,6 +90,8 @@ describe(ScrollAccessControlHandler.name, () => {
   it('no logs', async () => {
     const address = EthereumAddress.random()
     const provider = mockObject<IProvider>({
+      getBytecode: mockFn().resolvesTo(Bytes.fromHex('0xdeadbeef')),
+      getDeployment: mockFn().resolvesTo(undefined),
       async getLogs(providedAddress, topics) {
         expect(providedAddress).toEqual(address)
         expect(topics).toEqual([
@@ -150,6 +152,8 @@ describe(ScrollAccessControlHandler.name, () => {
 
     const address = EthereumAddress.random()
     const provider = mockObject<IProvider>({
+      getBytecode: mockFn().resolvesTo(Bytes.fromHex('0xdeadbeef')),
+      getDeployment: mockFn().resolvesTo(undefined),
       async getLogs() {
         return [
           RoleGranted(WARRIOR_ROLE, Alice),

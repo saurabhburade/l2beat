@@ -1,4 +1,4 @@
-import { DiscoveryDiff, discoveryDiffToMarkdown } from '@l2beat/discovery'
+import { type DiscoveryDiff, discoveryDiffToMarkdown } from '@l2beat/discovery'
 import { EthereumAddress } from '@l2beat/shared-pure'
 import { expect } from 'earl'
 
@@ -22,6 +22,7 @@ describe('Discord message formatting', () => {
         {
           name: 'Contract',
           address: ADDRESS,
+          addressType: 'Contract',
           diff: [
             {
               key: 'count',
@@ -33,11 +34,13 @@ describe('Discord message formatting', () => {
         {
           name: 'Contract',
           address: ADDRESS,
+          addressType: 'Contract',
           type: 'deleted',
         },
         {
           name: 'Contract',
           address: ADDRESS,
+          addressType: 'Contract',
           type: 'created',
         },
       ]
@@ -65,6 +68,7 @@ describe('Discord message formatting', () => {
         {
           name: 'Contract',
           address: ADDRESS,
+          addressType: 'Contract',
           diff: [
             {
               key: 'count',
@@ -76,11 +80,13 @@ describe('Discord message formatting', () => {
         {
           name: 'Contract',
           address: ADDRESS,
+          addressType: 'Contract',
           type: 'deleted',
         },
         {
           name: 'Contract',
           address: ADDRESS,
+          addressType: 'Contract',
           type: 'created',
         },
       ]

@@ -1,12 +1,12 @@
-import React, { ReactNode } from 'react'
+import React, { type ReactNode } from 'react'
 
-import { DashboardProject } from '../props/getDashboardProjects'
+import type { DashboardProject } from '../props/getDashboardProjects'
 import { TableData } from './components/Components'
 import { Diff } from './components/Diff'
 import { Page } from './components/Page'
 import { reactToHtml } from './components/reactToHtml'
 
-import { getContractField, sortBySeverity } from '@l2beat/discovery'
+import { sortBySeverity } from '@l2beat/discovery'
 
 interface DashboardPageProps {
   projects: Record<string, DashboardProject[]>
@@ -44,27 +44,17 @@ function DashboardPage(props: DashboardPageProps) {
                   >
                     <TableData
                       value={
-                        project.configured ? (
-                          project.diff && project.diff.length > 0 ? (
-                            <ChangedDetectedDropdown
-                              project={project}
-                              summary={
-                                <a
-                                  href={`/status/discovery/${chainName}/${project.name}`}
-                                >
-                                  {`${project.name} (Changes Detected!)`}
-                                </a>
-                              }
-                            />
-                          ) : (
-                            <a
-                              href={`/status/discovery/${chainName}/${project.name}`}
-                            >
-                              {project.name}
-                            </a>
-                          )
+                        project.diff && project.diff.length > 0 ? (
+                          <ChangedDetectedDropdown
+                            project={project}
+                            summary={
+                              <div
+                                style={{ color: '#cecbc4' }}
+                              >{`${project.name} (Changes Detected!)`}</div>
+                            }
+                          />
                         ) : (
-                          project.name
+                          <div>{project.name}</div>
                         )
                       }
                     />
@@ -97,22 +87,18 @@ function ChangedDetectedDropdown({
         </summary>
         <p>
           {project.diff.map((d, index) => {
-            const contract = project.config?.getContract(d.name)
             return (
               <p style={{ marginTop: '8px' }} key={index}>
                 <span style={{ fontWeight: 'bold' }}>
                   {d.name} - {d.address.toString()}
                 </span>
                 <br />
-                <span>
-                  {`+++ description: ${contract?.description ?? 'None'}`}
-                </span>
+                <span>{`+++ description: ${d.description ?? 'None'}`}</span>
                 <ul>
-                  {sortBySeverity(d.diff, contract).map((x, index2) => {
-                    const field = getContractField(contract, x.key)
+                  {sortBySeverity(d.diff).map((x, index2) => {
                     return (
                       <li key={index2} style={{ marginLeft: '12px' }}>
-                        <Diff diff={x} field={field} />
+                        <Diff diff={x} />
                       </li>
                     )
                   })}

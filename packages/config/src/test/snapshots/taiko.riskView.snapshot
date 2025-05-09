@@ -2,8 +2,8 @@
 
 {
   dataAvailability: {
-    definingMetric: Infinity
     description: "All of the data needed for proof construction is published on Ethereum L1."
+    orderHint: Infinity
     sentiment: "good"
     value: "Onchain"
   }
@@ -18,7 +18,7 @@
     value: "Self propose"
   }
   sequencerFailure: {
-    description: "The system uses a based (or L1-sequenced) rollup sequencing mechanism. Users can propose L2 blocks directly on the Taiko L1 contract. The TaikoAdmin multisig can pause block proposals without delay."
+    description: "The system uses a based (or L1-sequenced) rollup sequencing mechanism. Users can propose L2 blocks directly on the Taiko L1 contract. The Taiko multisig can pause block proposals without delay."
     sentiment: "good"
     value: "Self sequence"
   }

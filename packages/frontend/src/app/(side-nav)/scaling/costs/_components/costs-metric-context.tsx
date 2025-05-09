@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState } from 'react'
 
-export type CostsMetric = 'total' | 'per-l2-tx'
+export type CostsMetric = 'total' | 'per-l2-uop'
 
 type CostsMetricContextValue = {
   metric: CostsMetric
@@ -16,7 +16,7 @@ interface Props {
 }
 
 export function CostsMetricContextProvider({ children }: Props) {
-  const [metric, setMetric] = useState<CostsMetric>('total')
+  const [metric, setMetric] = useState<CostsMetric>('per-l2-uop')
   return (
     <CostsMetricContext.Provider
       value={{

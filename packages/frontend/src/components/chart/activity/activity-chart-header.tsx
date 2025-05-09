@@ -1,20 +1,18 @@
-import {
-  type ActivityMetric,
-  useActivityMetricContext,
-} from '~/app/(side-nav)/scaling/activity/_components/activity-metric-context'
+import type { ActivityMetric } from '~/app/(side-nav)/scaling/activity/_components/activity-metric-context'
+import { useActivityMetricContext } from '~/app/(side-nav)/scaling/activity/_components/activity-metric-context'
 import { ActivityMetricControls } from '~/app/(side-nav)/scaling/activity/_components/activity-metric-controls'
 import { Skeleton } from '~/components/core/skeleton'
 import { InfoIcon } from '~/icons/info'
-import { type ActivityChartStats } from '~/server/features/scaling/activity/get-activity-chart-stats'
+import type { ActivityChartStats } from '~/server/features/scaling/activity/get-activity-chart-stats'
 import { countPerSecond } from '~/server/features/scaling/activity/utils/count-per-second'
 import { cn } from '~/utils/cn'
 import { formatActivityCount } from '~/utils/number-format/format-activity-count'
+import { ChartTimeRange } from '../../core/chart/chart-time-range'
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '../../core/tooltip/tooltip'
-import { ChartTimeRange } from '../core/chart-time-range'
 
 interface Props {
   stats: ActivityChartStats | undefined

@@ -1,17 +1,20 @@
 import { createColumnHelper } from '@tanstack/react-table'
 import { NoDataBadge } from '~/components/badge/no-data-badge'
 import { PizzaRosetteCell } from '~/components/rosette/pizza/pizza-rosette-cell'
-import { TypeExplanationTooltip } from '~/components/table/cells/type-cell'
-import { TypeCell } from '~/components/table/cells/type-cell'
+import { TypeExplanationTooltip } from '~/components/table/cells/type-info'
+import { TypeInfo } from '~/components/table/cells/type-info'
 import { getScalingCommonProjectColumns } from '~/components/table/utils/common-project-columns/scaling-common-project-columns'
 import { EM_DASH } from '~/consts/characters'
-import { type ScalingArchivedEntry } from '~/server/features/scaling/archived/get-scaling-archived-entries'
-import { formatTvlTableNumber } from '~/utils/number-format/format-tvl-number'
+import type { ScalingArchivedEntry } from '~/server/features/scaling/archived/get-scaling-archived-entries'
+import { formatDollarValueNumber } from '~/utils/number-format/format-dollar-value-number'
 
 const columnHelper = createColumnHelper<ScalingArchivedEntry>()
 
 export const scalingArchivedColumns = [
-  ...getScalingCommonProjectColumns(columnHelper),
+  ...getScalingCommonProjectColumns(
+    columnHelper,
+    (row) => `/scaling/projects/${row.slug}`,
+  ),
   columnHelper.display({
     header: 'Risks',
     cell: (ctx) => {
@@ -22,6 +25,7 @@ export const scalingArchivedColumns = [
 
       return (
         <PizzaRosetteCell
+          href={`/scaling/projects/${ctx.row.original.slug}#risk-analysis`}
           values={risks}
           isUnderReview={ctx.row.original.statuses?.underReview === 'config'}
         />
@@ -34,7 +38,7 @@ export const scalingArchivedColumns = [
   columnHelper.accessor('category', {
     header: 'Type',
     cell: (ctx) => (
-      <TypeCell provider={ctx.row.original.provider}>{ctx.getValue()}</TypeCell>
+      <TypeInfo stack={ctx.row.original.stack}>{ctx.getValue()}</TypeInfo>
     ),
     meta: {
       tooltip: <TypeExplanationTooltip />,
@@ -44,9 +48,9 @@ export const scalingArchivedColumns = [
     header: 'Purpose',
     cell: (ctx) => ctx.row.original.purposes.join(', '),
   }),
-  columnHelper.accessor('totalTvl', {
+  columnHelper.accessor('totalTvs', {
     id: 'total',
-    header: 'Total value locked',
+    header: 'Total value secured',
     cell: (ctx) => {
       const value = ctx.getValue()
       if (value === undefined) {
@@ -55,24 +59,25 @@ export const scalingArchivedColumns = [
 
       return (
         <span className="font-bold md:text-base">
-          {formatTvlTableNumber(value)}
+          {formatDollarValueNumber(value)}
         </span>
       )
     },
+    sortUndefined: 'last',
     sortingFn: ({ original: a }, { original: b }) => {
-      const aTvl = a.totalTvl ?? 0
-      const bTvl = b.totalTvl ?? 0
+      const aTvs = a.totalTvs ?? 0
+      const bTvs = b.totalTvs ?? 0
 
-      if (aTvl === bTvl) {
+      if (aTvs === bTvs) {
         return b.name.localeCompare(a.name)
       }
 
-      return aTvl - bTvl
+      return aTvs - bTvs
     },
     meta: {
       align: 'right',
       tooltip:
-        'Total Value Locked is calculated as the sum of canonically bridged tokens, externally bridged tokens, and native tokens.',
+        'Total value secured is calculated as the sum of canonically bridged tokens, externally bridged tokens, and native tokens.',
     },
   }),
 ]

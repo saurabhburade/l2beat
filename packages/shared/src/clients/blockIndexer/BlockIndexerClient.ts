@@ -1,6 +1,6 @@
-import { Logger, RateLimiter } from '@l2beat/backend-tools'
+import type { Logger, RateLimiter } from '@l2beat/backend-tools'
 import { UnixTime } from '@l2beat/shared-pure'
-import { HttpClient } from '../http/HttpClient'
+import type { HttpClient } from '../http/HttpClient'
 import { BlockTimestampResponse, EtherscanResponse } from './types'
 
 interface EtherscanOptions {
@@ -8,10 +8,17 @@ interface EtherscanOptions {
   url: string
   apiKey: string
   chain: string
+  chainId: number
 }
 
 interface BlockscoutOptions {
   type: 'blockscout'
+  url: string
+  chain: string
+}
+
+interface RoutescanOptions {
+  type: 'routescan'
   url: string
   chain: string
 }
@@ -29,18 +36,23 @@ export class BlockIndexerClient {
   constructor(
     private readonly httpClient: HttpClient,
     private readonly rateLimiter: RateLimiter,
-    private readonly options: EtherscanOptions | BlockscoutOptions,
+    private readonly options:
+      | EtherscanOptions
+      | BlockscoutOptions
+      | RoutescanOptions,
   ) {
     this.call = this.rateLimiter.wrap(this.call.bind(this))
-    this.binTimeWidth = options.type === 'etherscan' ? 10 : 1
-    this.maximumCallsForBlockTimestamp = options.type === 'etherscan' ? 3 : 10
+    this.binTimeWidth =
+      options.type === 'etherscan' || options.type === 'routescan' ? 10 : 1
+    this.maximumCallsForBlockTimestamp =
+      options.type === 'etherscan' || options.type === 'routescan' ? 3 : 10
     this.chain = options.chain
   }
 
   static create(
     services: { httpClient: HttpClient; logger: Logger },
     rateLimiter: RateLimiter,
-    options: EtherscanOptions | BlockscoutOptions,
+    options: EtherscanOptions | BlockscoutOptions | RoutescanOptions,
   ) {
     return new BlockIndexerClient(services.httpClient, rateLimiter, options)
   }
@@ -48,7 +60,7 @@ export class BlockIndexerClient {
   // There is a case when there is not enough activity on a given chain
   // so that blocks come in a greater than timestampIndexingInterval intervals
   async getBlockNumberAtOrBefore(timestamp: UnixTime): Promise<number> {
-    let current = new UnixTime(timestamp.toNumber())
+    let current = UnixTime(timestamp)
 
     let counter = 1
     while (counter <= this.maximumCallsForBlockTimestamp) {
@@ -71,7 +83,7 @@ export class BlockIndexerClient {
           throw new Error(errorObject.message)
         }
 
-        current = current.add(-this.binTimeWidth, 'minutes')
+        current -= this.binTimeWidth * UnixTime.MINUTE
       }
       counter++
     }
@@ -94,6 +106,7 @@ export class BlockIndexerClient {
 
     if (this.options.type === 'etherscan') {
       query.append('apikey', this.options.apiKey)
+      query.append('chainId', this.options.chainId.toString())
     }
     const url = `${this.options.url}?${query.toString()}`
 

@@ -1,8 +1,8 @@
-import { ProxyDetails } from '@l2beat/discovery-types'
-import { EthereumAddress } from '@l2beat/shared-pure'
+import type { EthereumAddress } from '@l2beat/shared-pure'
+import type { ProxyDetails } from '../types'
 
-import { get$Implementations } from '@l2beat/discovery-types'
-import { IProvider } from '../../provider/IProvider'
+import type { IProvider } from '../../provider/IProvider'
+import { get$Implementations } from '../../utils/extractors'
 import { detectPolygonProxy } from '../auto/PolygonProxy'
 
 export async function getPolygonExtensionProxy(

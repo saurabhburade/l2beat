@@ -1,53 +1,61 @@
-import { SingleGrissiniDetails } from '~/components/rosette/grissini/single-grissini-details'
-import { type RosetteValue } from '~/components/rosette/types'
-import { cn } from '~/utils/cn'
+import { InlinedNoBridgeGrissiniDetailsPlaceholder } from '~/components/rosette/grissini/no-bridge-grissini-details-placeholder'
+import type { RosetteValue } from '~/components/rosette/types'
 import { Markdown } from '../../markdown/markdown'
+import { RiskBanner } from '../risk-banner'
 import { ProjectSection } from './project-section'
-import { type ProjectSectionProps } from './types'
+import type { ProjectSectionProps } from './types'
 
 export interface GrissiniRiskAnalysisSectionProps extends ProjectSectionProps {
   isVerified: boolean | undefined
-  grissiniValues: RosetteValue[]
+  isNoBridge?: boolean
+  layerGrissiniValues?: RosetteValue[]
+  bridgeGrissiniValues?: RosetteValue[]
   description?: string
-  hideRisks?: boolean
 }
 
 export function GrissiniRiskAnalysisSection({
-  grissiniValues,
+  layerGrissiniValues,
+  bridgeGrissiniValues,
   description,
-  hideRisks = false,
+  isNoBridge = false,
   ...sectionProps
 }: GrissiniRiskAnalysisSectionProps) {
   const isUnderReview =
     !!sectionProps.isUnderReview ||
-    Object.values(grissiniValues).some(
-      ({ sentiment }) => sentiment === 'UnderReview',
-    )
+    Object.values([
+      ...(layerGrissiniValues ?? []),
+      ...(bridgeGrissiniValues ?? []),
+    ]).some(({ sentiment }) => sentiment === 'UnderReview')
   return (
     <ProjectSection
       {...sectionProps}
       isUnderReview={isUnderReview}
-      className={cn(hideRisks ? 'space-y-0' : 'space-y-6')}
+      className="space-y-6"
     >
       {description && <Markdown>{description}</Markdown>}
+      {layerGrissiniValues && layerGrissiniValues.length > 0 && (
+        <RiskValues grissiniValues={layerGrissiniValues} />
+      )}
+      {bridgeGrissiniValues && bridgeGrissiniValues.length > 0 && (
+        <RiskValues grissiniValues={bridgeGrissiniValues} />
+      )}
+      {isNoBridge && <InlinedNoBridgeGrissiniDetailsPlaceholder />}
+    </ProjectSection>
+  )
+}
+
+function RiskValues({
+  grissiniValues,
+}: {
+  grissiniValues: RosetteValue[]
+}) {
+  return (
+    <div>
       {Object.values(grissiniValues).map((value, key) => (
-        <div key={key} className="flex flex-col gap-2">
-          <SingleGrissiniDetails
-            {...value}
-            className={hideRisks ? 'hidden' : ''}
-          />
-          {value.description && (
-            <Markdown
-              className={cn(
-                'leading-snug text-gray-850 dark:text-gray-400 md:text-lg',
-                hideRisks ? 'mt-0' : 'mt-1.5',
-              )}
-            >
-              {value.description}
-            </Markdown>
-          )}
+        <div key={key} className="mb-6 flex flex-col gap-2">
+          <RiskBanner key={value.name} {...value} />
         </div>
       ))}
-    </ProjectSection>
+    </div>
   )
 }

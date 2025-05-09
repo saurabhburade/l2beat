@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useEventListener } from './use-event-listener'
-import { useBreakpoint } from './use-is-mobile'
+import { useIsMobile } from './use-is-mobile'
 
 const DEFAULT_THRESHOLD = `30%`
 
@@ -12,12 +12,12 @@ interface Threshold {
 }
 
 export function useCurrentSection(threshold?: Threshold) {
-  const breakpoint = useBreakpoint()
+  const isMobile = useIsMobile()
   const [currentSection, setCurrentSection] = useState<HTMLElement>()
 
   const findCurrentSection = useCallback(() => {
     const sections = Array.from(
-      document.querySelectorAll<HTMLElement>('section'),
+      document.querySelectorAll<HTMLElement>('[data-role="project-section"]'),
     )
     const firstSection = sections.at(0)
     const lastSection = sections.at(-1)
@@ -31,32 +31,16 @@ export function useCurrentSection(threshold?: Threshold) {
       return
     }
 
-    const current = sections
-      .map((section) => {
-        const sectionTop = section.offsetTop
-        const sectionHeight = section.offsetHeight
-        const sectionBottom = sectionTop + sectionHeight
-
-        const scrollPos =
-          window.scrollY +
-          getViewportHeightOffset(threshold, breakpoint === 'mobile')
-
-        return {
-          section,
-          offset:
-            scrollPos < sectionTop
-              ? sectionTop - scrollPos
-              : scrollPos > sectionBottom
-                ? scrollPos - sectionBottom
-                : 0,
-        }
-      })
-      .sort((a, b) => a.offset - b.offset)[0]
-
+    const current = sections.findLast((section) => {
+      return (
+        section.getBoundingClientRect().top <
+        getViewportHeightOffset(threshold, isMobile)
+      )
+    })
     if (!current) return
 
-    setCurrentSection(current.section)
-  }, [breakpoint, threshold])
+    setCurrentSection(current)
+  }, [isMobile, threshold])
 
   useEffect(() => {
     findCurrentSection()

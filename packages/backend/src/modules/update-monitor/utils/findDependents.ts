@@ -1,4 +1,4 @@
-import { ConfigReader } from '@l2beat/discovery'
+import type { ConfigReader } from '@l2beat/discovery'
 
 export function findDependents(
   name: string,
@@ -10,7 +10,7 @@ export function findDependents(
   const configs = configReader.readAllConfigsForChain(chain)
   const dependents: string[] = []
   for (const config of configs) {
-    if (config.sharedModules.includes(name)) {
+    if (config.structure.sharedModules.includes(name)) {
       dependents.push(config.name)
     }
   }

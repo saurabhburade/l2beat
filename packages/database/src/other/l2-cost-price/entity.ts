@@ -1,6 +1,6 @@
 import { UnixTime } from '@l2beat/shared-pure'
-import { Insertable, Selectable } from 'kysely'
-import { L2CostPrice } from '../../kysely/generated/types'
+import type { Insertable, Selectable } from 'kysely'
+import type { L2CostPrice } from '../../kysely/generated/types'
 
 export interface L2CostPriceRecord {
   timestamp: UnixTime
@@ -16,7 +16,7 @@ export function toRecord(row: Selectable<L2CostPrice>): L2CostPriceRecord {
 
 export function toRow(record: L2CostPriceRecord): Insertable<L2CostPrice> {
   return {
-    timestamp: record.timestamp.toDate(),
+    timestamp: UnixTime.toDate(record.timestamp),
     priceUsd: record.priceUsd,
   }
 }

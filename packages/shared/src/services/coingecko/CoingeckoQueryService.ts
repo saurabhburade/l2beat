@@ -1,18 +1,19 @@
 import {
   assert,
-  CoingeckoId,
-  EthereumAddress,
+  type CoingeckoId,
   UnixTime,
   getHourlyTimestamps,
 } from '@l2beat/shared-pure'
-import { zip } from 'lodash'
+import zip from 'lodash/zip'
 
 import { Logger } from '@l2beat/backend-tools'
 import { CoingeckoClient } from '../../clients/coingecko/CoingeckoClient'
-import { CoinMarketChartRangeData } from '../../clients/coingecko/types'
+import type {
+  CoinMarketChartRangeData,
+  CoinsMarketResultData,
+} from '../../clients/coingecko/types'
 
 export const MAX_DAYS_FOR_HOURLY_PRECISION = 80
-const SECONDS_IN_DAY = 24 * 60 * 60
 export const COINGECKO_INTERPOLATION_WINDOW_DAYS = 14
 
 export interface QueryResultPoint {
@@ -105,15 +106,12 @@ export class CoingeckoQueryService {
     let currentTo = adjustedTo
 
     while (true) {
-      let currentFrom = currentTo.add(-MAX_DAYS_FOR_HOURLY_PRECISION, 'days')
-      if (adjustedFrom && currentFrom.lt(adjustedFrom)) {
+      let currentFrom = currentTo - MAX_DAYS_FOR_HOURLY_PRECISION * UnixTime.DAY
+      if (adjustedFrom && currentFrom < adjustedFrom) {
         currentFrom = adjustedFrom
-        const diff = currentTo.toNumber() - currentFrom.toNumber()
-        if (diff < MAX_DAYS_FOR_HOURLY_PRECISION * SECONDS_IN_DAY) {
-          currentTo = new UnixTime(
-            currentFrom.toNumber() +
-              MAX_DAYS_FOR_HOURLY_PRECISION * SECONDS_IN_DAY,
-          )
+        const diff = currentTo - currentFrom
+        if (diff < MAX_DAYS_FOR_HOURLY_PRECISION * UnixTime.DAY) {
+          currentTo = currentFrom + MAX_DAYS_FOR_HOURLY_PRECISION * UnixTime.DAY
         }
       }
 
@@ -125,7 +123,7 @@ export class CoingeckoQueryService {
       )
 
       results.push(data)
-      if (adjustedFrom && currentFrom.equals(adjustedFrom)) {
+      if (adjustedFrom && currentFrom === adjustedFrom) {
         break
       }
 
@@ -133,21 +131,6 @@ export class CoingeckoQueryService {
     }
 
     return combineResults(results)
-  }
-
-  async getCoinIds(): Promise<Map<EthereumAddress, CoingeckoId>> {
-    const coinsList = await this.coingeckoClient.getCoinList({
-      includePlatform: true,
-    })
-
-    const result = new Map()
-
-    coinsList.map((coin) => {
-      if (coin.platforms.ethereum)
-        result.set(EthereumAddress(coin.platforms.ethereum), coin.id)
-    })
-
-    return result
   }
 
   assertCoingeckoApiResponse(
@@ -163,8 +146,8 @@ export class CoingeckoQueryService {
     ) {
       this.logger.warn('Insufficient data in response', {
         coingeckoId,
-        from: range.from.toNumber(),
-        to: range.to.toNumber(),
+        from: range.from,
+        to: range.to,
         expectedLength,
         prices: prices.length,
         marketCaps: marketCaps.length,
@@ -177,9 +160,48 @@ export class CoingeckoQueryService {
   static calculateAdjustedTo(from: UnixTime, to: UnixTime): UnixTime {
     const maxDaysForOneCall = CoingeckoQueryService.MAX_DAYS_FOR_ONE_CALL
 
-    return to.gt(from.add(maxDaysForOneCall, 'days'))
-      ? from.add(maxDaysForOneCall, 'days')
+    return to > from + maxDaysForOneCall * UnixTime.DAY
+      ? from + maxDaysForOneCall * UnixTime.DAY
       : to
+  }
+
+  async getLatestMarketData(coingeckoIds: CoingeckoId[]) {
+    const prices: CoinsMarketResultData = []
+
+    for (
+      let i = 0;
+      coingeckoIds.length > i * CoingeckoClient.COINS_MARKET_PAGE_SIZE;
+      i++
+    ) {
+      const p = await this.coingeckoClient.getCoinsMarket(
+        coingeckoIds.slice(
+          i * CoingeckoClient.COINS_MARKET_PAGE_SIZE,
+          (i + 1) * CoingeckoClient.COINS_MARKET_PAGE_SIZE,
+        ),
+        'usd',
+      )
+      prices.push(...p)
+    }
+
+    const result = new Map<
+      CoingeckoId,
+      { price: number; circulating: number }
+    >()
+
+    for (const c of coingeckoIds) {
+      const p = prices.find((p) => p.id === c)
+      if (p === undefined) {
+        this.logger.error(`${c}: Price not found, assuming 0`)
+        result.set(c, { price: 0, circulating: 0 })
+      } else {
+        result.set(c, {
+          price: p.current_price,
+          circulating: p.circulating_supply,
+        })
+      }
+    }
+
+    return result
   }
 }
 
@@ -192,7 +214,7 @@ export function pickClosestValues(
   const result: QueryResultPoint[] = []
 
   const getDelta = (i: number, j: number) =>
-    points[j].date.getTime() - timestamps[i].toNumber() * 1000
+    points[j].date.getTime() - timestamps[i] * 1000
 
   const nextIsCloser = (i: number, j: number) =>
     j + 1 < points.length &&
@@ -213,8 +235,10 @@ export function pickClosestValues(
 
 function adjust(from: UnixTime, to: UnixTime): [UnixTime, UnixTime] {
   return [
-    from.toEndOf('hour').add(-COINGECKO_INTERPOLATION_WINDOW_DAYS, 'days'),
-    to.toStartOf('hour').add(COINGECKO_INTERPOLATION_WINDOW_DAYS, 'days'),
+    UnixTime.toEndOf(from, 'hour') -
+      COINGECKO_INTERPOLATION_WINDOW_DAYS * UnixTime.DAY,
+    UnixTime.toStartOf(to, 'hour') +
+      COINGECKO_INTERPOLATION_WINDOW_DAYS * UnixTime.DAY,
   ]
 }
 
@@ -222,11 +246,11 @@ export function generateRangesToCallHourly(from: UnixTime, to: UnixTime) {
   const ranges = []
   for (
     let start = from;
-    start.lt(to);
-    start = start.add(MAX_DAYS_FOR_HOURLY_PRECISION, 'days')
+    start < to;
+    start += MAX_DAYS_FOR_HOURLY_PRECISION * UnixTime.DAY
   ) {
-    const end = start.add(MAX_DAYS_FOR_HOURLY_PRECISION, 'days')
-    ranges.push({ start: start, end: end.gt(to) ? to : end })
+    const end = start + MAX_DAYS_FOR_HOURLY_PRECISION * UnixTime.DAY
+    ranges.push({ start: start, end: end > to ? to : end })
   }
   return ranges
 }

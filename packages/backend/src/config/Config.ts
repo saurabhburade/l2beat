@@ -1,31 +1,37 @@
-import { DiscoveryChainConfig } from '@l2beat/discovery'
-import {
-  AmountConfigEntry,
-  ChainId,
-  PriceConfigEntry,
-  ProjectId,
-  UnixTime,
-} from '@l2beat/shared-pure'
-
-import { BackendProject } from '@l2beat/config'
-import { ChainConverter } from '@l2beat/shared-pure'
-import { ActivityTransactionConfig } from '../modules/activity/ActivityTransactionConfig'
-import { MulticallConfigEntry } from '../peripherals/multicall/types'
-import { ResolvedFeatureFlag } from './FeatureFlags'
-import { ChainApi } from './chain/ChainApi'
-import { FinalityProjectConfig } from './features/finality'
+import type {
+  ChainConfig,
+  OnchainVerifier,
+  ProjectActivityConfig,
+  ProjectDaTrackingConfig,
+  ProjectFinalityConfig,
+} from '@l2beat/config'
+import type {
+  ConfigReader,
+  DiscoveryChainConfig,
+  DiscoveryPaths,
+} from '@l2beat/discovery'
+import type { TrackedTxConfigEntry } from '@l2beat/shared'
+import type { ProjectId, UnixTime } from '@l2beat/shared-pure'
+import type {
+  AmountConfig,
+  BlockTimestampConfig,
+  PriceConfig,
+  ProjectTvsConfig,
+} from '../modules/tvs/types'
+import type { MulticallConfigEntry } from '../peripherals/multicall/types'
+import type { ResolvedFeatureFlag } from './FeatureFlags'
+import type { ChainApi } from './chain/ChainApi'
 
 export interface Config {
   readonly name: string
   readonly isReadonly: boolean
-  readonly projects: BackendProject[]
   readonly clock: ClockConfig
   readonly metricsAuth: MetricsAuthConfig | false
   readonly database: DatabaseConfig
   readonly coingeckoApiKey: string
   readonly api: ApiConfig
   readonly health: HealthConfig
-  readonly tvl: TvlConfig | false
+  readonly tvs: TvsConfig | false
   readonly trackedTxsConfig: TrackedTxsConfig | false
   readonly finality: FinalityConfig | false
   readonly activity: ActivityConfig | false
@@ -34,15 +40,16 @@ export interface Config {
   readonly flatSourceModuleEnabled: boolean
   readonly lzOAppsEnabled: boolean
   readonly statusEnabled: boolean
-  readonly chains: { name: string; chainId: ChainId }[]
-  readonly verifiers: boolean
-  readonly daBeat: DABeatConfig | false
+  readonly chains: { name: string; chainId: number | undefined }[]
+  readonly verifiers: VerifiersConfig | false
+  readonly daBeat: DaBeatConfig | false
   readonly chainConfig: ChainApi[]
   readonly beaconApi: {
     readonly url: string | undefined
     readonly callsPerMinute: number
     readonly timeout: number
   }
+  readonly da: DataAvailabilityTrackingConfig | false
 
   readonly flags: ResolvedFeatureFlag[]
 }
@@ -50,7 +57,7 @@ export interface Config {
 export interface ApiConfig {
   readonly port: number
   readonly cache: {
-    readonly tvl: boolean
+    readonly tvs: boolean
     readonly liveness: boolean
     readonly verifiers: boolean
   }
@@ -81,19 +88,22 @@ export interface ClockConfig {
   readonly sixHourlyCutoffDays: number
 }
 
-export interface TvlConfig {
-  readonly prices: PriceConfigEntry[]
-  readonly amounts: AmountConfigEntry[]
-  readonly chains: ChainTvlConfig[]
-  readonly projects: BackendProject[]
-  readonly chainConverter: ChainConverter
-  // used by value indexer
-  readonly maxTimestampsToAggregateAtOnce: number
-  readonly projectsExcludedFromApi: string[]
-  readonly tvlCleanerEnabled: boolean
+export interface TvsConfig {
+  readonly projects: (ProjectTvsConfig & { amountSources: string[] })[]
+  readonly amounts: AmountConfig[]
+  readonly prices: PriceConfig[]
+  readonly chains: string[]
+  readonly blockTimestamps: BlockTimestampConfig[]
+}
+
+export interface TrackedTxProject {
+  readonly id: ProjectId
+  readonly isArchived: boolean
+  readonly configurations: TrackedTxConfigEntry[]
 }
 
 export interface TrackedTxsConfig {
+  readonly projects: TrackedTxProject[]
   readonly bigQuery: {
     readonly clientEmail: string
     readonly privateKey: string
@@ -111,7 +121,13 @@ export interface TrackedTxsConfig {
 }
 
 export interface FinalityConfig {
-  readonly configurations: FinalityProjectConfig[]
+  readonly configurations: FinalityConfigProject[]
+}
+
+export type FinalityConfigProject = ProjectFinalityConfig & {
+  projectId: ProjectId
+  url?: string
+  callsPerMinute?: number
 }
 
 export interface BlockscoutChainConfig {
@@ -125,20 +141,22 @@ export interface EtherscanChainConfig {
   readonly url: string
 }
 
+export interface RoutescanChainConfig {
+  readonly type: 'routescan'
+  readonly url: string
+}
+
 export interface ChainTvlConfig {
-  readonly chain: string
-  readonly config?: {
-    readonly projectId: ProjectId
-    readonly chainId: ChainId
-    readonly providerUrl: string
-    readonly providerCallsPerMinute: number
-    readonly minBlockTimestamp: UnixTime
-    readonly blockExplorerConfig:
-      | EtherscanChainConfig
-      | BlockscoutChainConfig
-      | undefined
-    readonly multicallConfig: MulticallConfigEntry[]
-  }
+  readonly name: string
+  readonly providerUrl: string
+  readonly providerCallsPerMinute: number
+  readonly minBlockTimestamp: UnixTime
+  readonly blockExplorerConfig:
+    | EtherscanChainConfig
+    | BlockscoutChainConfig
+    | RoutescanChainConfig
+    | undefined
+  readonly multicallConfig: MulticallConfigEntry[]
 }
 
 export interface HealthConfig {
@@ -148,18 +166,13 @@ export interface HealthConfig {
 }
 
 export interface ActivityConfig {
-  readonly starkexApiKey: string
-  readonly starkexCallsPerMinute: number
-  readonly projectsExcludedFromAPI: string[]
-  readonly allowedProjectIds?: string[]
-  readonly projects: {
-    id: ProjectId
-    config: ActivityTransactionConfig
-    blockExplorerConfig:
-      | EtherscanChainConfig
-      | BlockscoutChainConfig
-      | undefined
-  }[]
+  readonly projects: ActivityConfigProject[]
+}
+
+export interface ActivityConfigProject {
+  id: ProjectId
+  chainName: string
+  activityConfig: ProjectActivityConfig
 }
 
 export interface MetricsAuthConfig {
@@ -168,10 +181,20 @@ export interface MetricsAuthConfig {
 }
 
 export interface UpdateMonitorConfig {
+  readonly configReader: ConfigReader
+  readonly paths: DiscoveryPaths
   readonly runOnStart?: boolean
-  readonly enableCache?: boolean
+  readonly cacheEnabled?: boolean
+  readonly cacheUri: string
   readonly chains: DiscoveryChainConfig[]
+  readonly disabledChains: string[]
   readonly discord: DiscordConfig | false
+  readonly updateMessagesRetentionPeriodDays: number
+}
+
+export interface VerifiersConfig {
+  readonly verifiers: OnchainVerifier[]
+  readonly chains: ChainConfig[]
 }
 
 export interface DiscordConfig {
@@ -181,11 +204,44 @@ export interface DiscordConfig {
   readonly callsPerMinute: number
 }
 
-export interface DABeatConfig {
+export interface DaBeatConfig {
+  /** Coingecko ids of tokens for economic security */
+  readonly coingeckoIds: string[]
+  /** Names of the economic security types */
+  readonly types: string[]
   readonly quicknodeApiUrl: string
   readonly quicknodeCallsPerMinute: number
   readonly celestiaApiUrl: string
   readonly celestiaCallsPerMinute: number
   readonly nearRpcUrl: string
   readonly availWsUrl: string
+}
+
+type BaseLayerConfig = {
+  type: 'baseLayer'
+  daLayer: string
+  projectId: ProjectId
+  sinceBlock: number
+  untilBlock?: number
+}
+
+export type DaTrackingConfig =
+  | (ProjectDaTrackingConfig & { projectId: ProjectId })
+  | BaseLayerConfig
+
+export interface DataAvailabilityTrackingConfig {
+  readonly layers: {
+    type: 'ethereum' | 'celestia' | 'avail'
+    name: string
+    url: string
+    callsPerMinute: number
+    batchSize: number
+    startingBlock: number
+  }[]
+
+  readonly projects: {
+    /** Hash computed automatically based on fields */
+    configurationId: string
+    config: DaTrackingConfig
+  }[]
 }

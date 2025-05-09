@@ -1,16 +1,28 @@
-import { assert, Block, UnixTime } from '@l2beat/shared-pure'
-import { BlockClient } from '../../clients'
+import { assert, type Block, type UnixTime } from '@l2beat/shared-pure'
+import type { BlockClient } from '../../clients'
 import { getBlockNumberAtOrBefore } from '../../tools/getBlockNumberAtOrBefore'
 
 export class BlockProvider {
   constructor(
-    private readonly chain: string,
+    readonly chain: string,
     private readonly clients: BlockClient[],
   ) {
     assert(clients.length > 0, 'Clients cannot be empty')
   }
 
-  async getBlockWithTransactions(x: number): Promise<Block> {
+  async getLatestBlockNumber(): Promise<number> {
+    for (const [index, client] of this.clients.entries()) {
+      try {
+        return await client.getLatestBlockNumber()
+      } catch (error) {
+        if (index === this.clients.length - 1) throw error
+      }
+    }
+
+    throw new Error(`Missing ${this.chain.toUpperCase()}_RPC_URL`)
+  }
+
+  async getBlockWithTransactions(x: number | 'latest'): Promise<Block> {
     for (const [index, client] of this.clients.entries()) {
       try {
         const block = await client.getBlockWithTransactions(x)

@@ -1,31 +1,31 @@
 import { existsSync } from 'fs'
 import path from 'path'
+import { getDiscoveryPaths } from '@l2beat/discovery'
 import { CliLogger } from '@l2beat/shared'
 import { formatAsAsciiTable } from '@l2beat/shared-pure'
 import chalk from 'chalk'
 import { command, number, option } from 'cmd-ts'
-import { readConfig } from '../config/readConfig'
 import { BlobsFetcher } from '../implementations/find-l2/BlobsFetcher'
 import { CeleniumFetcher } from '../implementations/find-l2/CeleniumFetcher'
 import { RollupWtfFetcher } from '../implementations/find-l2/RollupWtfFetcher'
 
 export const FindL2 = command({
   name: 'find-l2',
-  description: 'Try to find L2s from other sources',
+  description: 'Try to find L2s from other sources.',
   args: {
     blocksToDownload: option({
       type: number,
       long: 'blocks-to-download',
       short: 'b',
       description:
-        'number of blocks to check for blob transactions from the tip',
+        'number of blocks to check for blob transactions from the tip.',
       defaultValue: () => 50000,
       defaultValueIsSerializable: true,
     }),
   },
   handler: async (args) => {
     const logger: CliLogger = new CliLogger()
-    const config = readConfig()
+    const paths = getDiscoveryPaths()
 
     const fetchers = [
       new CeleniumFetcher(),
@@ -37,13 +37,9 @@ export const FindL2 = command({
       fetchers.map(async (f) => await f.fetch()),
     )
 
-    let projects = [...new Set(results.flatMap((r) => r.names))]
-    if (config.discoveryPath) {
-      const discoveryPath = config.discoveryPath
-      projects = projects.filter(
-        (p) => !existsSync(path.join(discoveryPath, p)),
-      )
-    }
+    const projects = [...new Set(results.flatMap((r) => r.names))].filter(
+      (p) => !existsSync(path.join(paths.discovery, p)),
+    )
 
     const headers = [
       'Projects',

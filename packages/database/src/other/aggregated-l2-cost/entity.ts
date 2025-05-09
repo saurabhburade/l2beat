@@ -1,6 +1,6 @@
 import { ProjectId, UnixTime } from '@l2beat/shared-pure'
-import { Insertable, Selectable } from 'kysely'
-import { AggregatedL2Cost } from '../../kysely/generated/types'
+import type { Insertable, Selectable } from 'kysely'
+import type { AggregatedL2Cost } from '../../kysely/generated/types'
 
 export interface AggregatedL2CostRecord {
   timestamp: UnixTime
@@ -27,7 +27,7 @@ export function toRow(
 ): Insertable<AggregatedL2Cost> {
   return {
     ...record,
-    timestamp: record.timestamp.toDate(),
+    timestamp: UnixTime.toDate(record.timestamp),
     projectId: record.projectId.toString(),
   }
 }

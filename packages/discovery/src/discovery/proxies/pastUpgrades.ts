@@ -1,7 +1,12 @@
-import { assert, EthereumAddress, Hash256, UnixTime } from '@l2beat/shared-pure'
+import {
+  assert,
+  type EthereumAddress,
+  Hash256,
+  UnixTime,
+} from '@l2beat/shared-pure'
 import { utils } from 'ethers'
-import { LogDescription } from 'ethers/lib/utils'
-import { IProvider } from '../provider/IProvider'
+import type { LogDescription } from 'ethers/lib/utils'
+import type { IProvider } from '../provider/IProvider'
 
 export type DateAddresses = [string, Hash256, EthereumAddress[]]
 
@@ -26,10 +31,7 @@ export async function getPastUpgradesSingleEvent(
   )
   assert(blocks.every((b) => b !== undefined))
   const dateMap = Object.fromEntries(
-    blocks.map((b) => [
-      b.number,
-      new UnixTime(b.timestamp).toDate().toISOString(),
-    ]),
+    blocks.map((b) => [b.number, UnixTime.toDate(b.timestamp).toISOString()]),
   )
 
   return logs.map((l) => {

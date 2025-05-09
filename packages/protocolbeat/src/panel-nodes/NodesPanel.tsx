@@ -2,10 +2,14 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { getProject } from '../api/api'
-import { Field as ApiField, ApiProjectResponse, FieldValue } from '../api/types'
+import type {
+  Field as ApiField,
+  ApiProjectResponse,
+  FieldValue,
+} from '../api/types'
 import { usePanelStore } from '../store/store'
 import { NodesApp } from './NodesApp'
-import { Field, Node } from './store/State'
+import type { Field, Node } from './store/State'
 import { useStore as useNodeStore, useStore } from './store/store'
 import { NODE_WIDTH } from './store/utils/constants'
 
@@ -46,7 +50,10 @@ function useLoadNodes(data: ApiProjectResponse | undefined, project: string) {
       return
     }
     const nodes: Node[] = []
-    for (const chain of data.chains) {
+    for (const chain of data.entries) {
+      const hueShift = chain.project.startsWith('shared') ? 90 : 0
+
+      const initialAddresses = chain.initialContracts.map((x) => x.address)
       for (const contract of [
         ...chain.initialContracts,
         ...chain.discoveredContracts,
@@ -58,13 +65,16 @@ function useLoadNodes(data: ApiProjectResponse | undefined, project: string) {
         const fallback = `${prefix}:${address.slice(0, 6)}…${address.slice(-4)}`
         const node: Node = {
           id: contract.address,
+          isInitial: initialAddresses.includes(contract.address),
           name: contract.name ?? fallback,
           addressType: contract.type,
           address,
           box: { x: 0, y: 0, width: NODE_WIDTH, height: 0 },
           color: 0,
+          hueShift,
           data: null,
           fields: toNodeFields(contract.fields),
+          hiddenFields: [],
         }
         nodes.push(node)
       }
@@ -73,13 +83,16 @@ function useLoadNodes(data: ApiProjectResponse | undefined, project: string) {
         const fallback = `EOA ${prefix}:${address.slice(0, 6)}…${address.slice(-4)}`
         const node: Node = {
           id: eoa.address,
+          isInitial: false,
           name: eoa.name ?? fallback,
-          addressType: 'EOA',
+          addressType: eoa.type,
           address,
           box: { x: 0, y: 0, width: NODE_WIDTH, height: 0 },
           color: 0,
+          hueShift,
           data: null,
           fields: [],
+          hiddenFields: [],
         }
         nodes.push(node)
       }
@@ -137,8 +150,13 @@ function getNodeFields(
   }
 
   if (value.type === 'object') {
-    return Object.entries(value.value).flatMap(([key, value]) =>
-      getNodeFields(`${path}.${key}`, value, bannedKeys, bannedValues),
+    return value.values.flatMap(([key, value]) =>
+      getNodeFields(
+        `${path}.${extractFieldValue(key)}`,
+        value,
+        bannedKeys,
+        bannedValues,
+      ),
     )
   } else if (value.type === 'array') {
     return value.values.flatMap((value, i) =>
@@ -161,6 +179,17 @@ function getNodeFields(
     ]
   } else {
     return []
+  }
+}
+
+function extractFieldValue(value: FieldValue): string {
+  switch (value.type) {
+    case 'string':
+      return value.value
+    case 'address':
+      return value.address
+    default:
+      return ''
   }
 }
 

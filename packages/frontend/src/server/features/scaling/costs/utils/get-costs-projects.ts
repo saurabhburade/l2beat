@@ -1,9 +1,12 @@
-import { type Layer2, layer2s } from '@l2beat/config'
+import type { Project } from '@l2beat/config'
+import { assertUnreachable } from '@l2beat/shared-pure'
 import { z } from 'zod'
+import { ps } from '~/server/projects'
+import { isProjectOther } from '../../utils/is-project-other'
 
 export const CostsProjectsFilter = z.discriminatedUnion('type', [
   z.object({
-    type: z.literal('all'),
+    type: z.enum(['all', 'rollups', 'others']),
   }),
   z.object({
     type: z.literal('projects'),
@@ -12,26 +15,45 @@ export const CostsProjectsFilter = z.discriminatedUnion('type', [
 ])
 export type CostsProjectsFilter = z.infer<typeof CostsProjectsFilter>
 
-export function getCostsProjects(
+export async function getCostsProjects(
   filter: CostsProjectsFilter = { type: 'all' },
-): Layer2[] {
-  const condition = filterToCondition(filter)
-  return layer2s.filter(
+  previewRecategorisation = false,
+): Promise<Project<'trackedTxsConfig', 'archivedAt'>[]> {
+  const projects = await ps.getProjects({
+    select: ['trackedTxsConfig', 'scalingInfo', 'statuses'],
+    optional: ['archivedAt'],
+    whereNot: ['isUpcoming'],
+  })
+
+  const condition = filterToCondition(filter, previewRecategorisation)
+  return projects.filter(
     (p) =>
       condition(p) &&
-      p.config.trackedTxs !== undefined &&
-      !p.isArchived &&
-      !p.isUpcoming &&
-      (p.display.category === 'Optimistic Rollup' ||
-        p.display.category === 'ZK Rollup'),
+      (p.scalingInfo.type === 'Optimistic Rollup' ||
+        p.scalingInfo.type === 'ZK Rollup'),
   )
 }
 
 function filterToCondition(
   filter: CostsProjectsFilter,
-): (p: Layer2) => boolean {
-  if (filter.type === 'all') {
-    return () => true
+  previewRecategorisation: boolean,
+): (p: Project<'scalingInfo' | 'statuses'>) => boolean {
+  switch (filter.type) {
+    case 'all':
+      return () => true
+    case 'rollups':
+      return (p) =>
+        (p.scalingInfo.type === 'Optimistic Rollup' ||
+          p.scalingInfo.type === 'ZK Rollup') &&
+        !isProjectOther(p.scalingInfo, previewRecategorisation) &&
+        !(previewRecategorisation && p.statuses.isUnderReview) // If previewRecategorisation is true, we exclude projects that are under review
+    case 'others':
+      return (p) =>
+        isProjectOther(p.scalingInfo, previewRecategorisation) &&
+        !(previewRecategorisation && p.statuses.isUnderReview)
+    case 'projects':
+      return (p) => new Set(filter.projectIds).has(p.id)
+    default:
+      assertUnreachable(filter)
   }
-  return (p) => filter.projectIds.includes(p.id)
 }

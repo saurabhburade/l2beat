@@ -1,17 +1,17 @@
-import { AssessCount } from '@l2beat/config'
-import { ActivityRecord } from '@l2beat/database'
-import { BlockProvider } from '@l2beat/shared'
-import { ProjectId, UnixTime } from '@l2beat/shared-pure'
-import { range } from 'lodash'
+import type { Logger } from '@l2beat/backend-tools'
+import type { ActivityRecord } from '@l2beat/database'
+import type { BlockProvider } from '@l2beat/shared'
+import { type ProjectId, UnixTime } from '@l2beat/shared-pure'
+import range from 'lodash/range'
 import { aggregatePerDay } from '../../utils/aggregatePerDay'
-import { RpcUopsAnalyzer } from '../uops/analyzers/RpcUopsAnalyzer'
-import { StarknetUopsAnalyzer } from '../uops/analyzers/StarknetUopsAnalyzer'
+import type { UopsAnalyzer } from '../uops/types'
 
 interface Dependencies {
   provider: BlockProvider
   projectId: ProjectId
-  uopsAnalyzer?: RpcUopsAnalyzer | StarknetUopsAnalyzer
-  assessCount?: AssessCount
+  uopsAnalyzer?: UopsAnalyzer
+  assessCount: (count: number, blockNumber: number) => number
+  logger: Logger
 }
 
 export class BlockTxsCountService {
@@ -22,18 +22,35 @@ export class BlockTxsCountService {
       const block = await this.$.provider.getBlockWithTransactions(blockNumber)
 
       const txs = block.transactions.length
-      const txsCount = this.$.assessCount?.(txs, blockNumber) ?? txs
+      let txsCount = this.$.assessCount(txs, blockNumber)
+
+      if (txsCount < 0) {
+        this.$.logger.warn('txsCount is negative', {
+          projectId: this.$.projectId,
+          blockNumber,
+          txsCount,
+        })
+        txsCount = 0
+      }
 
       let uopsCount: number | null = null
       if (this.$.uopsAnalyzer) {
         const uops = this.$.uopsAnalyzer.calculateUops(block)
-        uopsCount = this.$.assessCount?.(uops, blockNumber) ?? uops
+        uopsCount = this.$.assessCount(uops, blockNumber)
+        if (uopsCount < 0) {
+          this.$.logger.warn('uopsCount is negative', {
+            projectId: this.$.projectId,
+            blockNumber,
+            uopsCount,
+          })
+          uopsCount = 0
+        }
       }
 
       return {
         txsCount,
         uopsCount,
-        timestamp: new UnixTime(block.timestamp),
+        timestamp: UnixTime(block.timestamp),
         number: block.number,
       }
     })

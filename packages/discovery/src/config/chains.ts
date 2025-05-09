@@ -1,20 +1,25 @@
 import { EthereumAddress } from '@l2beat/shared-pure'
 
 import { getMulticall3Config } from '../discovery/provider/multicall/MulticallConfig'
-import { MulticallConfig } from '../discovery/provider/multicall/types'
-import { EtherscanUnsupportedMethods } from '../utils/IEtherscanClient'
+import type { MulticallConfig } from '../discovery/provider/multicall/types'
+import type { EtherscanUnsupportedMethods } from '../utils/IEtherscanClient'
 
 interface ChainConfig {
   name: string
   chainId: number
   // See: https://github.com/safe-global/safe-core-sdk/blob/9b64da33bc55615349d527909d4b792e05bb9826/packages/protocol-kit/src/utils/eip-3770/config.ts
   shortName: string
-  explorer: {
-    type: 'etherscan' | 'blockscout'
-    url: string
-    unsupported?: EtherscanUnsupportedMethods
-  }
-  multicall: MulticallConfig
+  explorer:
+    | {
+        type: 'etherscan' | 'blockscout' | 'routescan'
+        url: string
+        unsupported?: EtherscanUnsupportedMethods
+      }
+    | {
+        type: 'sourcify'
+        chainId: number
+      }
+  multicall: MulticallConfig | undefined
 }
 
 export const chains: ChainConfig[] = [
@@ -183,7 +188,7 @@ export const chains: ChainConfig[] = [
     shortName: 'mantle',
     multicall: getMulticall3Config(304717),
     explorer: {
-      type: 'etherscan',
+      type: 'routescan',
       url: 'https://api.routescan.io/v2/network/mainnet/evm/5000/etherscan/api',
     },
   },
@@ -193,7 +198,7 @@ export const chains: ChainConfig[] = [
     shortName: 'metis-andromeda',
     multicall: getMulticall3Config(2338552),
     explorer: {
-      type: 'etherscan',
+      type: 'routescan',
       url: 'https://api.routescan.io/v2/network/mainnet/evm/1088/etherscan/api',
     },
   },
@@ -203,7 +208,7 @@ export const chains: ChainConfig[] = [
     shortName: 'boba',
     multicall: getMulticall3Config(446859),
     explorer: {
-      type: 'etherscan',
+      type: 'routescan',
       url: 'https://api.routescan.io/v2/network/mainnet/evm/288/etherscan/api',
     },
   },
@@ -213,7 +218,7 @@ export const chains: ChainConfig[] = [
     shortName: 'mode',
     multicall: getMulticall3Config(2465882),
     explorer: {
-      type: 'etherscan',
+      type: 'routescan',
       url: 'https://api.routescan.io/v2/network/mainnet/evm/34443/etherscan/api',
     },
   },
@@ -258,6 +263,49 @@ export const chains: ChainConfig[] = [
     explorer: {
       type: 'blockscout',
       url: 'https://explorer.kinto.xyz/api',
+    },
+  },
+  {
+    name: 'unichain',
+    chainId: 130,
+    shortName: 'unichain',
+    multicall: getMulticall3Config(8000000),
+    explorer: {
+      type: 'etherscan',
+      url: 'https://api.uniscan.xyz/api',
+    },
+  },
+  {
+    name: 'ink',
+    chainId: 57073,
+    shortName: 'ink',
+    multicall: getMulticall3Config(
+      1,
+      EthereumAddress('0xcA11bde05977b3631167028862bE2a173976CA11'),
+    ),
+    explorer: {
+      type: 'blockscout',
+      url: 'https://explorer.inkonchain.com/api',
+    },
+  },
+  {
+    name: 'everclear',
+    chainId: 25327,
+    shortName: 'everclear',
+    multicall: undefined,
+    explorer: {
+      type: 'blockscout',
+      url: 'https://scan.everclear.org/api',
+    },
+  },
+  {
+    name: 'zircuit',
+    chainId: 48900,
+    shortName: 'zircuit',
+    multicall: undefined,
+    explorer: {
+      type: 'sourcify',
+      chainId: 48900,
     },
   },
 ] as const satisfies ChainConfig[]

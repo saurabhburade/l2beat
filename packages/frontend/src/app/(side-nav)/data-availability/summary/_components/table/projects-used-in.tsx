@@ -1,4 +1,4 @@
-import { type UsedInProject } from '@l2beat/config/build/src/projects/other/da-beat/types/UsedInProject'
+import type { UsedInProject } from '@l2beat/config'
 import Image from 'next/image'
 import {
   Tooltip,
@@ -8,8 +8,12 @@ import {
 import { LinkWithOnHoverPrefetch } from '~/components/link/link-with-on-hover-prefetch'
 import { cn } from '~/utils/cn'
 
+export interface UsedInProjectWithIcon extends UsedInProject {
+  icon: string
+}
+
 interface Props {
-  usedIn: UsedInProject[]
+  usedIn: UsedInProjectWithIcon[]
   className?: string
   maxProjects?: number
   noTooltip?: boolean
@@ -44,8 +48,8 @@ export function ProjectsUsedIn({
     </span>
   ) : (
     <Tooltip>
-      <TooltipTrigger>
-        <span className="text-2xs leading-none text-zinc-800 dark:text-gray-50">
+      <TooltipTrigger asChild>
+        <span className="cursor-default text-2xs leading-none text-zinc-800 dark:text-gray-50">
           +{rest.length} more
         </span>
       </TooltipTrigger>
@@ -72,7 +76,7 @@ export function ProjectsUsedIn({
                 <Image
                   width={20}
                   height={20}
-                  src={`/icons/${project.slug}.png`}
+                  src={project.icon}
                   alt={`${project.name} logo`}
                 />
               </TooltipTrigger>
@@ -85,13 +89,18 @@ export function ProjectsUsedIn({
                   <Image
                     width={20}
                     height={20}
-                    src={`/icons/${project.slug}.png`}
+                    src={project.icon}
                     alt={`${project.name} logo`}
                   />
                 </TooltipTrigger>
               </LinkWithOnHoverPrefetch>
             )}
-            <TooltipContent>{project.name}</TooltipContent>
+            <TooltipContent>
+              <p className="font-bold">{project.name}</p>
+              <p className="text-xs text-secondary">
+                Click to view project page
+              </p>
+            </TooltipContent>
           </Tooltip>
         )
       })}

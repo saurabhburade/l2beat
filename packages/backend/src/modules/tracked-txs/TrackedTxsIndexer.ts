@@ -1,15 +1,15 @@
-import { Database } from '@l2beat/database'
-import { TrackedTxConfigEntry } from '@l2beat/shared'
+import type { Database } from '@l2beat/database'
+import type { TrackedTxConfigEntry } from '@l2beat/shared'
 import { UnixTime, clampRangeToDay } from '@l2beat/shared-pure'
 import { Indexer } from '@l2beat/uif'
 import { ManagedMultiIndexer } from '../../tools/uif/multi/ManagedMultiIndexer'
-import {
+import type {
   Configuration,
   ManagedMultiIndexerOptions,
   RemovalConfiguration,
 } from '../../tools/uif/multi/types'
-import { TrackedTxsClient } from './TrackedTxsClient'
-import { TxUpdaterInterface } from './types/TxUpdaterInterface'
+import type { TrackedTxsClient } from './TrackedTxsClient'
+import type { TxUpdaterInterface } from './types/TxUpdaterInterface'
 
 interface Dependencies
   extends Omit<ManagedMultiIndexerOptions<TrackedTxConfigEntry>, 'name'> {
@@ -47,11 +47,11 @@ export class TrackedTxsIndexer extends ManagedMultiIndexer<TrackedTxConfigEntry>
       }
       this.logger.info('Saved txs into DB', {
         from,
-        to: unixTo.toNumber(),
+        to: unixTo,
         configurationsToSync: configurations.length,
       })
 
-      return unixTo.toNumber()
+      return unixTo
     }
   }
 
@@ -61,13 +61,13 @@ export class TrackedTxsIndexer extends ManagedMultiIndexer<TrackedTxConfigEntry>
         [
           this.$.db.liveness.deleteByConfigInTimeRange(
             configuration.id,
-            new UnixTime(configuration.from),
-            new UnixTime(configuration.to),
+            UnixTime(configuration.from),
+            UnixTime(configuration.to),
           ),
           this.$.db.l2Cost.deleteByConfigInTimeRange(
             configuration.id,
-            new UnixTime(configuration.from),
-            new UnixTime(configuration.to),
+            UnixTime(configuration.from),
+            UnixTime(configuration.to),
           ),
         ],
       )

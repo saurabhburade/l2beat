@@ -1,38 +1,45 @@
 import {
   assert,
-  Block,
+  type Block,
   Bytes,
-  EthereumAddress,
-  json,
+  type EthereumAddress,
+  type json,
 } from '@l2beat/shared-pure'
+import { z } from 'zod'
 import { generateId } from '../../tools/generateId'
 import {
   ClientCore,
-  ClientCoreDependencies as ClientCoreDependencies,
+  type ClientCoreDependencies as ClientCoreDependencies,
 } from '../ClientCore'
-import { BlockClient } from '../types'
+import type { BlockClient } from '../types'
+import type { MulticallV3Client } from './multicall/MulticallV3Client'
 import {
-  CallParameters,
+  type CallParameters,
   EVMBalanceResponse,
-  EVMBlock,
+  type EVMBlock,
   EVMBlockResponse,
-  EVMBlockWithTransactions,
+  type EVMBlockWithTransactions,
   EVMBlockWithTransactionsResponse,
   EVMCallResponse,
   EVMTransactionReceiptResponse,
   EVMTransactionResponse,
   Quantity,
   RPCError,
+  RpcResponse,
 } from './types'
 
 interface Dependencies extends ClientCoreDependencies {
   url: string
   generateId?: () => string
+  multicallClient?: MulticallV3Client
 }
 
 export class RpcClient extends ClientCore implements BlockClient {
+  multicallClient?: MulticallV3Client
+
   constructor(private readonly $: Dependencies) {
     super($)
+    this.multicallClient = $.multicallClient
   }
 
   async getLatestBlockNumber() {
@@ -147,18 +154,8 @@ export class RpcClient extends ClientCore implements BlockClient {
     blockNumber: number | 'latest',
   ): Promise<Bytes> {
     const method = 'eth_call'
-    const encodedNumber =
-      blockNumber === 'latest' ? 'latest' : Quantity.encode(BigInt(blockNumber))
-
-    const callObject: Record<string, string> = {
-      to: callParams.to.toString(),
-    }
-    if (callParams.from) {
-      callObject.from = callParams.from.toString()
-    }
-    if (callParams.data) {
-      callObject.data = callParams.data.toString()
-    }
+    const encodedNumber = encodeBlockNumber(blockNumber)
+    const callObject = buildCallObject(callParams)
 
     const params = [callObject, encodedNumber]
     const callResponse = await this.query(method, params)
@@ -170,6 +167,61 @@ export class RpcClient extends ClientCore implements BlockClient {
     }
 
     return Bytes.fromHex(callResult.data.result)
+  }
+
+  isMulticallDeployed(blockNumber: number) {
+    return !!(
+      this.$.multicallClient && this.$.multicallClient.sinceBlock <= blockNumber
+    )
+  }
+
+  async multicall(calls: CallParameters[], blockNumber: number) {
+    assert(
+      this.$.multicallClient &&
+        blockNumber >= this.$.multicallClient.sinceBlock,
+      `Multicall not configured for block ${blockNumber}`,
+    )
+
+    const batches = this.$.multicallClient.encodeBatches(calls)
+
+    this.$.logger.debug(`Multicall`, { batches: batches.length })
+
+    const batchedResults = await Promise.all(
+      batches.map(async (batch) => {
+        assert(this.$.multicallClient)
+        return this.$.multicallClient.decode(
+          await this.call(batch, blockNumber),
+        )
+      }),
+    )
+
+    return batchedResults.flat()
+  }
+
+  async batchCall(
+    calls: {
+      params: CallParameters
+      blockNumber: number | 'latest'
+    }[],
+  ): Promise<Bytes[]> {
+    const method = 'eth_call'
+    const params = calls.map((call) => [
+      buildCallObject(call.params),
+      encodeBlockNumber(call.blockNumber),
+    ])
+
+    const callResponse = await this.batchQuery(method, params)
+    const callResult = z.array(EVMCallResponse).safeParse(callResponse)
+
+    if (!callResult.success) {
+      this.$.logger.warn(
+        'Error during batch call',
+        JSON.stringify(callResponse),
+      )
+      throw new Error('BatchCall response: Error during parsing')
+    }
+
+    return callResult.data.map((c) => Bytes.fromHex(c.result))
   }
 
   async query(
@@ -187,6 +239,40 @@ export class RpcClient extends ClientCore implements BlockClient {
       }),
       redirect: 'follow',
       timeout: 5_000, // Most RPCs respond in ~2s during regular conditions
+    })
+  }
+
+  // TODO: add multi-method support
+  async batchQuery(
+    method: string,
+    paramsBatch: (string | number | boolean | Record<string, string>)[][],
+  ) {
+    const queries = paramsBatch.map((params) => ({
+      method: method,
+      params: params,
+      id: this.$.generateId ? this.$.generateId() : generateId(),
+      jsonrpc: '2.0',
+    }))
+
+    const response = await this.fetch(this.$.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(queries),
+      redirect: 'follow',
+      timeout: 5_000, // Most RPCs respond in ~2s during regular conditions
+    })
+
+    const results = new Map(
+      z
+        .array(RpcResponse)
+        .parse(response)
+        .map((p) => [p.id, p]),
+    )
+
+    return queries.map((q) => {
+      const r = results.get(q.id)
+      assert(r, `Request with with ${q.id} not found`)
+      return r
     })
   }
 
@@ -209,5 +295,18 @@ export class RpcClient extends ClientCore implements BlockClient {
 
   get chain() {
     return this.$.sourceName
+  }
+}
+
+function encodeBlockNumber(blockNumber: number | 'latest'): string {
+  return blockNumber === 'latest'
+    ? 'latest'
+    : Quantity.encode(BigInt(blockNumber))
+}
+
+function buildCallObject(callParams: CallParameters): Record<string, string> {
+  return {
+    to: callParams.to.toString(),
+    data: callParams.data.toString(),
   }
 }

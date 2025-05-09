@@ -3,7 +3,7 @@ import clsx from 'clsx'
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { getProject } from '../api/api'
-import { ApiAddressEntry, ApiProjectChain } from '../api/types'
+import type { ApiAddressEntry, ApiProjectChain } from '../api/types'
 import { AddressIcon } from '../common/AddressIcon'
 import { toShortenedAddress } from '../common/toShortenedAddress'
 import { IconChevronDown } from '../icons/IconChevronDown'
@@ -30,15 +30,15 @@ export function ListPanel() {
   return (
     <div className="h-full w-full overflow-x-hidden">
       <ol>
-        {response.data.chains.map((chain, i) => (
-          <ListItemChain key={i} chain={chain} first={i === 0} />
+        {response.data.entries.map((chain, i) => (
+          <ListItemChain key={i} entry={chain} first={i === 0} />
         ))}
       </ol>
     </div>
   )
 }
 
-function ListItemChain(props: { chain: ApiProjectChain; first: boolean }) {
+function ListItemChain(props: { entry: ApiProjectChain; first: boolean }) {
   const [open, setOpen] = useState(true)
 
   function onFocus() {
@@ -47,31 +47,36 @@ function ListItemChain(props: { chain: ApiProjectChain; first: boolean }) {
 
   return (
     <li className={clsx(!props.first && 'border-t border-t-coffee-600')}>
-      <button
-        onClick={() => setOpen((open) => !open)}
-        className="flex h-[22px] w-full cursor-pointer select-none items-center gap-1 font-bold text-xs uppercase hover:bg-autumn-600"
-      >
-        {open && <IconChevronDown />}
-        {!open && <IconChevronRight />}
-        {props.chain.name}
-      </button>
+      <div className="group flex h-[22px] items-center justify-between pr-1 hover:bg-autumn-600">
+        <button
+          onClick={() => setOpen((open) => !open)}
+          className="flex w-full cursor-pointer select-none items-center gap-1 font-bold text-xs uppercase"
+        >
+          {open && <IconChevronDown />}
+          {!open && <IconChevronRight />}
+          {`${props.entry.project} on ${props.entry.chain}`}
+        </button>
+        <span className="whitespace-nowrap text-coffee-400 text-xs italic group-hover:text-coffee-200">
+          @ {props.entry.blockNumber}
+        </span>
+      </div>
       {open && (
         <>
           <ListItemContracts
             title="Initial"
             onFocus={onFocus}
-            entries={props.chain.initialContracts}
+            entries={props.entry.initialContracts}
           />
           <ListItemContracts
             title="Discovered"
             onFocus={onFocus}
-            entries={props.chain.discoveredContracts}
+            entries={props.entry.discoveredContracts}
           />
           <ListItemContracts
             startClosed
             title="EOAs"
             onFocus={onFocus}
-            entries={props.chain.eoas}
+            entries={props.entry.eoas}
           />
         </>
       )}
@@ -123,9 +128,11 @@ function ListItemContracts(props: {
       </button>
       {open && (
         <ol>
-          {props.entries.map((entry) => (
-            <AddressEntry key={entry.address} entry={entry} />
-          ))}
+          {props.entries
+            .toSorted((a, b) => b.type.localeCompare(a.type))
+            .map((entry) => (
+              <AddressEntry key={entry.address} entry={entry} />
+            ))}
         </ol>
       )}
     </>

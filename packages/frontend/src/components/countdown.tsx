@@ -6,7 +6,7 @@ import { cn } from '~/utils/cn'
 
 interface Props {
   expiresAt: number
-  size?: 'lg' | 'md' | 'sm'
+  size?: 'lg' | 'md' | 'sm' | 'xs'
   className?: string
   withBackground?: boolean
 }
@@ -17,9 +17,7 @@ export function Countdown({
   className,
   withBackground = false,
 }: Props) {
-  const [secondsLeft, setSecondsLeft] = useState(
-    expiresAt - UnixTime.now().toNumber(),
-  )
+  const [secondsLeft, setSecondsLeft] = useState(expiresAt - UnixTime.now())
 
   useInterval(() => {
     setSecondsLeft((timeLeft) => timeLeft - 1)
@@ -52,6 +50,21 @@ export function Countdown({
   )
 }
 
+export function TextCountdown({ expiresAt }: { expiresAt: number }) {
+  const [secondsLeft, setSecondsLeft] = useState(expiresAt - UnixTime.now())
+
+  useInterval(() => {
+    setSecondsLeft((timeLeft) => timeLeft - 1)
+  }, 1000)
+
+  const { days, hours, minutes, seconds } = getTimeParts(secondsLeft)
+  return (
+    <span>
+      {days} days {hours} hours {minutes} minutes {seconds} seconds
+    </span>
+  )
+}
+
 const MemoizedTimePart = memo(TimePart)
 function TimePart({
   children,
@@ -71,6 +84,7 @@ function TimePart({
         size === 'lg' && 'text-[28px]',
         size === 'md' && 'text-2xl leading-none',
         size === 'sm' && 'text-[18px]',
+        size === 'xs' && 'px-1.5 py-[3.5px] text-[18px]',
         className,
       )}
     >

@@ -1,8 +1,9 @@
 import { readdirSync } from 'fs'
 import path from 'path'
+import { getDiscoveryPaths } from '@l2beat/discovery'
 import { assert } from '@l2beat/shared-pure'
 import {
-  Type,
+  type Type,
   command,
   number,
   option,
@@ -10,12 +11,11 @@ import {
   string,
   subcommands,
 } from 'cmd-ts'
-import { readConfig } from '../config/readConfig'
 import {
   DIFFING_MODES,
   DISPLAY_MODES,
-  DiffingMode,
-  DisplayMode,
+  type DiffingMode,
+  type DisplayMode,
   powerdiff,
 } from '../implementations/powerdiff'
 import { Directory } from './types'
@@ -50,7 +50,8 @@ const difftasticPath = option({
 
 const mode = option({
   type: DiffingModeType,
-  description: 'mode in which diff will be generated, either together or split',
+  description:
+    'mode in which diff will be generated, either together or split.',
   long: 'mode',
   short: 'm',
   defaultValue: () => 'together' as const,
@@ -59,7 +60,7 @@ const mode = option({
 const displayMode = option({
   type: DisplayModeType,
   description:
-    'mode in which diff will be shown, either inline or side-by-side',
+    'mode in which diff will be shown, either inline or side-by-side.',
   long: 'display-mode',
   short: 'd',
   defaultValue: () => 'inline' as const,
@@ -67,7 +68,7 @@ const displayMode = option({
 
 export const diffContext = option({
   type: number,
-  description: 'number of additional lines to show around the difference',
+  description: 'number of additional lines to show around the difference.',
   long: 'context',
   short: 'c',
   defaultValue: () => 3,
@@ -77,7 +78,7 @@ export const diffContext = option({
 const PowerdiffPath = command({
   name: 'path',
   description:
-    'Compare two directories recursively using difftastic and serve the result',
+    'Compare two directories recursively using difftastic and serve the result.',
   args: {
     leftPath: positional({ type: Directory, displayName: 'leftPath' }),
     rightPath: positional({ type: Directory, displayName: 'rightPath' }),
@@ -108,7 +109,7 @@ const PowerdiffPath = command({
 const PowerdiffDiscovery = command({
   name: 'discovery',
   description:
-    'Compare two directories recursively using difftastic and serve the result',
+    'Compare two directories recursively using difftastic and serve the result.',
   args: {
     chain: positional({ type: string, displayName: 'chain' }),
     project: positional({ type: string, displayName: 'project' }),
@@ -125,12 +126,8 @@ const PowerdiffDiscovery = command({
     displayMode,
     diffContext,
   }) => {
-    const config = readConfig()
-    assert(
-      config.discoveryPath !== undefined,
-      'Discovery path is not set in the configuration file, set it in .l2b',
-    )
-    const projectPath = path.join(config.discoveryPath, project, chain)
+    const paths = getDiscoveryPaths()
+    const projectPath = path.join(paths.discovery, project, chain)
     const contents = readdirSync(projectPath)
 
     const flatAt = contents.filter((f) => f.startsWith('.flat@'))
@@ -144,11 +141,11 @@ const PowerdiffDiscovery = command({
       'Missing .flat or .flat@<number>, rerun discovery.',
     )
 
-    const rightPath = path.join(projectPath, '.flat')
     const leftPath = path.join(projectPath, flatAt[0])
+    const rightPath = path.join(projectPath, '.flat')
     powerdiff(
-      rightPath,
       leftPath,
+      rightPath,
       difftasticPath,
       mode,
       displayMode,
@@ -159,7 +156,7 @@ const PowerdiffDiscovery = command({
 
 export const Powerdiff = subcommands({
   name: 'powerdiff',
-  description: 'Compare project similarities based on flat sources',
+  description: 'Compare project similarities based on flat sources.',
   cmds: {
     path: PowerdiffPath,
     discovery: PowerdiffDiscovery,

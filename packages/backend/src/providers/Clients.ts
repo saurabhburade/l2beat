@@ -1,19 +1,22 @@
-import { Logger, RateLimiter } from '@l2beat/backend-tools'
+import { type Logger, RateLimiter } from '@l2beat/backend-tools'
 import {
-  BlobClient,
-  BlockClient,
+  BeaconChainClient,
+  type BlockClient,
   BlockIndexerClient,
+  CelestiaRpcClient,
   CoingeckoClient,
   FuelClient,
   HttpClient,
   LoopringClient,
+  MulticallV3Client,
+  PolkadotRpcClient,
   RpcClient,
   StarkexClient,
   StarknetClient,
   ZksyncLiteClient,
 } from '@l2beat/shared'
 import { assert, assertUnreachable } from '@l2beat/shared-pure'
-import { Config } from '../config/Config'
+import type { Config } from '../config/Config'
 
 export interface Clients {
   block: BlockClient[]
@@ -22,9 +25,13 @@ export interface Clients {
   loopring: LoopringClient | undefined
   degate: LoopringClient | undefined
   coingecko: CoingeckoClient
-  blob: BlobClient | undefined
+  beacon: BeaconChainClient | undefined
+  celestia: CelestiaRpcClient | undefined
+  avail: PolkadotRpcClient | undefined
   getRpcClient: (chain: string) => RpcClient
   getStarknetClient: (chain: string) => StarknetClient
+  rpcClients: RpcClient[]
+  starknetClients: StarknetClient[]
 }
 
 export function initClients(config: Config, logger: Logger): Clients {
@@ -34,7 +41,9 @@ export function initClients(config: Config, logger: Logger): Clients {
   let loopringClient: LoopringClient | undefined
   let degateClient: LoopringClient | undefined
   let ethereumClient: RpcClient | undefined
-  let blobClient: BlobClient | undefined
+  let beaconChainClient: BeaconChainClient | undefined
+  let celestia: CelestiaRpcClient | undefined
+  let avail: PolkadotRpcClient | undefined
 
   const starknetClients: StarknetClient[] = []
   const blockClients: BlockClient[] = []
@@ -57,6 +66,13 @@ export function initClients(config: Config, logger: Logger): Clients {
     for (const blockApi of chain.blockApis) {
       switch (blockApi.type) {
         case 'rpc': {
+          const multicallClient = blockApi.multicallV3
+            ? new MulticallV3Client(
+                blockApi.multicallV3.address,
+                blockApi.multicallV3.sinceBlock,
+                500,
+              )
+            : undefined
           const rpcClient = new RpcClient({
             sourceName: chain.name,
             url: blockApi.url,
@@ -64,6 +80,7 @@ export function initClients(config: Config, logger: Logger): Clients {
             callsPerMinute: blockApi.callsPerMinute,
             retryStrategy: blockApi.retryStrategy,
             logger,
+            multicallClient,
           })
           blockClients.push(rpcClient)
           rpcClients.push(rpcClient)
@@ -145,6 +162,37 @@ export function initClients(config: Config, logger: Logger): Clients {
     }
   }
 
+  if (config.da) {
+    for (const layer of config.da.layers) {
+      switch (layer.type) {
+        case 'celestia': {
+          celestia = new CelestiaRpcClient({
+            callsPerMinute: layer.callsPerMinute,
+            url: layer.url,
+            retryStrategy: 'RELIABLE',
+            sourceName: layer.name,
+            logger,
+            http,
+          })
+          blockClients.push(celestia)
+          break
+        }
+
+        case 'avail': {
+          avail = new PolkadotRpcClient({
+            callsPerMinute: layer.callsPerMinute,
+            url: layer.url,
+            retryStrategy: 'RELIABLE',
+            sourceName: layer.name,
+            logger,
+            http,
+          })
+          blockClients.push(avail)
+        }
+      }
+    }
+  }
+
   const coingeckoClient = new CoingeckoClient({
     sourceName: 'coingeckoApi',
     apiKey: config.coingeckoApiKey,
@@ -154,11 +202,10 @@ export function initClients(config: Config, logger: Logger): Clients {
     retryStrategy: 'RELIABLE',
   })
 
-  if (ethereumClient && config.beaconApi.url) {
-    blobClient = new BlobClient({
+  if (config.beaconApi.url) {
+    beaconChainClient = new BeaconChainClient({
       sourceName: 'beaconApi',
       beaconApiUrl: config.beaconApi.url,
-      rpcClient: ethereumClient,
       logger,
       http,
       callsPerMinute: config.beaconApi.callsPerMinute,
@@ -186,8 +233,12 @@ export function initClients(config: Config, logger: Logger): Clients {
     loopring: loopringClient,
     degate: degateClient,
     coingecko: coingeckoClient,
-    blob: blobClient,
+    beacon: beaconChainClient,
+    celestia,
+    avail,
     getStarknetClient,
     getRpcClient,
+    rpcClients,
+    starknetClients,
   }
 }

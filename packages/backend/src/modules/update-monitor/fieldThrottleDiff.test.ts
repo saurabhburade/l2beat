@@ -1,8 +1,8 @@
-import { DiscoveryDiff } from '@l2beat/discovery'
+import type { DiscoveryDiff } from '@l2beat/discovery'
 import { ChainId, EthereumAddress, UnixTime } from '@l2beat/shared-pure'
 import { expect } from 'earl'
 
-import { UpdateNotifierRecord } from '@l2beat/database'
+import type { UpdateNotifierRecord } from '@l2beat/database'
 import { fieldThrottleDiff } from './fieldThrottleDiff'
 
 describe(fieldThrottleDiff.name, () => {
@@ -19,16 +19,19 @@ describe(fieldThrottleDiff.name, () => {
     {
       name: 'ContractA',
       address: ADDRESS_A,
+      addressType: 'Contract',
       diff: FIELDS_A,
     },
     {
       name: 'ContractB',
       address: ADDRESS_B,
+      addressType: 'Contract',
       diff: FIELDS_B,
     },
     {
       name: 'ContractC',
       address: ADDRESS_C,
+      addressType: 'Contract',
       diff: FIELDS_C,
     },
   ]
@@ -39,16 +42,19 @@ describe(fieldThrottleDiff.name, () => {
         {
           name: 'ContractA',
           address: ADDRESS_A,
+          addressType: 'Contract',
           diff: [FIELDS_A[0]],
         },
         {
           name: 'ContractB',
           address: ADDRESS_B,
+          addressType: 'Contract',
           diff: [FIELDS_B[0]],
         },
         {
           name: 'ContractB',
           address: ADDRESS_B,
+          addressType: 'Contract',
           diff: [FIELDS_B[1]],
         },
         DIFF[2],
@@ -57,6 +63,7 @@ describe(fieldThrottleDiff.name, () => {
         {
           name: 'ContractB',
           address: ADDRESS_B,
+          addressType: 'Contract',
           diff: [FIELDS_B[0]],
         },
         DIFF[2],
@@ -65,11 +72,13 @@ describe(fieldThrottleDiff.name, () => {
         {
           name: 'ContractA',
           address: ADDRESS_A,
+          addressType: 'Contract',
           diff: [FIELDS_A[0]],
         },
         {
           name: 'ContractB',
           address: ADDRESS_B,
+          addressType: 'Contract',
           diff: [FIELDS_B[1]],
         },
         DIFF[2],
@@ -113,8 +122,8 @@ describe(fieldThrottleDiff.name, () => {
 function mockRecord(diff: DiscoveryDiff[]): UpdateNotifierRecord {
   return {
     id: 1,
-    createdAt: UnixTime.now().add(-30, 'minutes'),
-    updatedAt: UnixTime.now().add(-30, 'minutes'),
+    createdAt: UnixTime.now() - 30 * UnixTime.MINUTE,
+    updatedAt: UnixTime.now() - 30 * UnixTime.MINUTE,
     projectName: 'project',
     blockNumber: 24392345,
     diff: diff,

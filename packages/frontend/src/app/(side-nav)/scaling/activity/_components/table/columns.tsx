@@ -1,20 +1,22 @@
+import { ProjectId } from '@l2beat/shared-pure'
 import { createColumnHelper } from '@tanstack/react-table'
 import { NoDataBadge } from '~/components/badge/no-data-badge'
 import { PrimaryValueCell } from '~/components/table/cells/primary-value-cell'
 import { ValueWithPercentageChange } from '~/components/table/cells/value-with-percentage-change'
-import { type CommonProjectColumnsOptions } from '~/components/table/utils/common-project-columns/common-project-columns'
+import type { CommonProjectColumnsOptions } from '~/components/table/utils/common-project-columns/common-project-columns'
 import { getScalingCommonProjectColumns } from '~/components/table/utils/common-project-columns/scaling-common-project-columns'
-import { type ScalingActivityEntry } from '~/server/features/scaling/activity/get-scaling-activity-entries'
+import type { ScalingActivityEntry } from '~/server/features/scaling/activity/get-scaling-activity-entries'
 import { formatActivityCount } from '~/utils/number-format/format-activity-count'
 import { formatInteger } from '~/utils/number-format/format-integer'
 import { formatUopsRatio } from '~/utils/number-format/format-uops-ratio'
 import { SyncStatusWrapper } from '../../../finality/_components/table/sync-status-wrapper'
-import { type ActivityMetric } from '../activity-metric-context'
+import type { ActivityMetric } from '../activity-metric-context'
 import { MaxCountCell } from './max-count-cell'
 
 export type ScalingActivityTableEntry = ScalingActivityEntry & {
   data:
     | {
+        isSynced: boolean
         change: number
         pastDayCount: number
         summedCount: number
@@ -32,7 +34,14 @@ export const getScalingActivityColumns = (
   metric: ActivityMetric,
   opts?: CommonProjectColumnsOptions,
 ) => [
-  ...getScalingCommonProjectColumns(columnHelper, opts),
+  ...getScalingCommonProjectColumns(
+    columnHelper,
+    (row) =>
+      row.id === ProjectId.ETHEREUM
+        ? undefined
+        : `/scaling/projects/${row.slug}#activity`,
+    opts,
+  ),
   columnHelper.accessor('data.pastDayCount', {
     header: `Past day ${metric === 'uops' ? 'UOPS' : 'TPS'}`,
     cell: (ctx) => {
@@ -41,7 +50,7 @@ export const getScalingActivityColumns = (
         return <NoDataBadge className="w-full" />
       }
       return (
-        <SyncStatusWrapper syncStatus={data.syncStatus}>
+        <SyncStatusWrapper isSynced={data.isSynced}>
           <PrimaryValueCell>
             {formatActivityCount(data.pastDayCount)}
           </PrimaryValueCell>
@@ -51,7 +60,7 @@ export const getScalingActivityColumns = (
     sortUndefined: 'last',
     meta: {
       align: 'right',
-      headClassName: 'max-w-[60px]',
+      headClassName: 'max-w-[110px]',
       tooltip: `${metric === 'uops' ? 'User operations' : 'Transactions'} per second averaged over the past day.`,
       colSpan: (cell) => (cell.row.original.data ? 1 : 100),
     },
@@ -65,7 +74,7 @@ export const getScalingActivityColumns = (
         return null
       }
       return (
-        <SyncStatusWrapper syncStatus={data.syncStatus}>
+        <SyncStatusWrapper isSynced={data.isSynced}>
           <MaxCountCell
             maxCount={data.maxCount.value}
             timestamp={data.maxCount.timestamp}
@@ -86,7 +95,7 @@ export const getScalingActivityColumns = (
         return null
       }
       return (
-        <SyncStatusWrapper syncStatus={data.syncStatus}>
+        <SyncStatusWrapper isSynced={data.isSynced}>
           <ValueWithPercentageChange
             change={data.change}
             className="font-medium"
@@ -112,7 +121,7 @@ export const getScalingActivityColumns = (
         return null
       }
       return (
-        <SyncStatusWrapper syncStatus={data.syncStatus}>
+        <SyncStatusWrapper isSynced={data.isSynced}>
           <PrimaryValueCell>{formatUopsRatio(data.ratio)}</PrimaryValueCell>
         </SyncStatusWrapper>
       )

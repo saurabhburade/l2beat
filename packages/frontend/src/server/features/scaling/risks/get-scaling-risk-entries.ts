@@ -1,65 +1,50 @@
-import {
-  ProjectService,
-  type ProjectWith,
-  type ScalingProjectRiskView,
-} from '@l2beat/config'
-import { groupByTabs } from '~/utils/group-by-tabs'
-import {
-  type ProjectChanges,
-  getProjectsChangeReport,
-} from '../../projects-change-report/get-projects-change-report'
-import {
-  type CommonScalingEntry,
-  getCommonScalingEntry2,
-} from '../get-common-scaling-entry'
-import {
-  type ProjectsLatestTvlUsd,
-  getProjectsLatestTvlUsd,
-} from '../tvl/utils/get-latest-tvl-usd'
-import { compareStageAndTvl } from '../utils/compare-stage-and-tvl'
+import type { Project, ProjectScalingRiskView } from '@l2beat/config'
+import { groupByScalingTabs } from '~/app/(side-nav)/scaling/_utils/group-by-scaling-tabs'
+import { ps } from '~/server/projects'
+import type { ProjectChanges } from '../../projects-change-report/get-projects-change-report'
+import { getProjectsChangeReport } from '../../projects-change-report/get-projects-change-report'
+import type { CommonScalingEntry } from '../get-common-scaling-entry'
+import { getCommonScalingEntry } from '../get-common-scaling-entry'
+import { getProjectsLatestTvsUsd } from '../tvs/get-latest-tvs-usd'
+import { compareStageAndTvs } from '../utils/compare-stage-and-tvs'
 
 export async function getScalingRiskEntries() {
-  const [tvl, projectsChangeReport] = await Promise.all([
-    getProjectsLatestTvlUsd(),
+  const [tvs, projectsChangeReport, projects] = await Promise.all([
+    getProjectsLatestTvsUsd(),
     getProjectsChangeReport(),
+    ps.getProjects({
+      select: ['statuses', 'scalingInfo', 'scalingRisks', 'display'],
+      where: ['isScaling'],
+      whereNot: ['isUpcoming', 'archivedAt'],
+    }),
   ])
-
-  const projects = await ProjectService.STATIC.getProjects({
-    select: ['statuses', 'scalingInfo', 'scalingRisks'],
-    optional: ['countdowns'],
-    where: ['isScaling'],
-    whereNot: ['isUpcoming', 'isArchived'],
-  })
 
   const entries = projects
     .map((project) =>
       getScalingRiskEntry(
         project,
         projectsChangeReport.getChanges(project.id),
-        tvl,
+        tvs[project.id],
       ),
     )
-    .sort(compareStageAndTvl)
+    .sort(compareStageAndTvs)
 
-  return groupByTabs(entries)
+  return groupByScalingTabs(entries)
 }
 
 export interface ScalingRiskEntry extends CommonScalingEntry {
-  risks: ScalingProjectRiskView
-  tvlOrder: number
+  risks: ProjectScalingRiskView
+  tvsOrder: number
 }
 
 function getScalingRiskEntry(
-  project: ProjectWith<
-    'scalingInfo' | 'statuses' | 'scalingRisks',
-    'countdowns'
-  >,
+  project: Project<'scalingInfo' | 'statuses' | 'scalingRisks' | 'display'>,
   changes: ProjectChanges,
-  tvl: ProjectsLatestTvlUsd,
-) {
+  tvs: number | undefined,
+): ScalingRiskEntry {
   return {
-    ...getCommonScalingEntry2({ project, changes, syncStatus: undefined }),
+    ...getCommonScalingEntry({ project, changes }),
     risks: project.scalingRisks.stacked ?? project.scalingRisks.self,
-    tvlOrder: tvl[project.id] ?? 0,
+    tvsOrder: tvs ?? -1,
   }
 }

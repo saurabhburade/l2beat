@@ -1,26 +1,27 @@
 import { assertUnreachable } from '@l2beat/shared-pure'
 
-import { cn } from '~/utils/cn'
-import { ChartSection } from './sections/chart-section'
+import { ActivitySection } from './sections/activity-section'
 import { ContractsSection } from './sections/contracts/contracts-section'
-import { MultiChainContractsSection } from './sections/contracts/multichain-contracts-section'
+import { CostsSection } from './sections/costs/costs-section'
 import { DaRiskSummarySection } from './sections/da-risk-summary-section'
 import { DetailedDescriptionSection } from './sections/detailed-description-section'
 import { GrissiniRiskAnalysisSection } from './sections/grissini-risk-analysis-section'
 import { GroupSection } from './sections/group-section'
-import { KnowledgeNuggetsSection } from './sections/knowledge-nuggets-section'
 import { L3RiskAnalysisSection } from './sections/l3-risk-analysis-section'
 import { MarkdownSection } from './sections/markdown-section'
 import { MilestonesAndIncidentsSection } from './sections/milestones-and-incidents-section'
-import { MultichainPermissionsSection } from './sections/permissions/multichain-permissions-section'
 import { PermissionsSection } from './sections/permissions/permissions-section'
 import { RiskAnalysisSection } from './sections/risk-analysis-section'
 import { RiskSummarySection } from './sections/risk-summary-section'
+import { SequencingSection } from './sections/sequencing-section'
+import { StackedTvsSection } from './sections/stacked-tvs-section'
 import { StageSection } from './sections/stage-section'
 import { StateDerivationSection } from './sections/state-derivation-section'
 import { StateValidationSection } from './sections/state-validation-section'
-import { TechnologySection } from './sections/technology-section'
-import { type ProjectDetailsSection } from './sections/types'
+import { TechnologyChoicesSection } from './sections/technology-choices-section'
+import { ThroughputSection } from './sections/throughput/throughput-section'
+import { TvsSection } from './sections/tvs-section'
+import type { ProjectDetailsSection } from './sections/types'
 import { UpcomingDisclaimer } from './sections/upcoming-disclaimer'
 
 export interface ProjectDetailsProps {
@@ -32,7 +33,7 @@ export interface ProjectDetailsProps {
 
 export function ProjectDetails(props: ProjectDetailsProps) {
   return (
-    <div className={cn(!props.nested && 'max-md:px-4')}>
+    <div>
       {props.items.map((item, index) => {
         const { nested } = props
         const sectionOrder = props.parentSection
@@ -40,9 +41,41 @@ export function ProjectDetails(props: ProjectDetailsProps) {
           : `${index + 1}`
 
         switch (item.type) {
-          case 'ChartSection':
+          case 'StackedTvsSection':
             return (
-              <ChartSection
+              <StackedTvsSection
+                key={item.props.id}
+                {...{ nested, sectionOrder }}
+                {...item.props}
+              />
+            )
+          case 'TvsSection':
+            return (
+              <TvsSection
+                key={item.props.id}
+                {...{ nested, sectionOrder }}
+                {...item.props}
+              />
+            )
+          case 'ActivitySection':
+            return (
+              <ActivitySection
+                key={item.props.id}
+                {...{ nested, sectionOrder }}
+                {...item.props}
+              />
+            )
+          case 'CostsSection':
+            return (
+              <CostsSection
+                key={item.props.id}
+                {...{ nested, sectionOrder }}
+                {...item.props}
+              />
+            )
+          case 'ThroughputSection':
+            return (
+              <ThroughputSection
                 key={item.props.id}
                 {...{ nested, sectionOrder }}
                 {...item.props}
@@ -104,9 +137,9 @@ export function ProjectDetails(props: ProjectDetailsProps) {
                 {...item.props}
               />
             )
-          case 'TechnologySection':
+          case 'TechnologyChoicesSection':
             return (
-              <TechnologySection
+              <TechnologyChoicesSection
                 key={item.props.id}
                 {...{ nested, sectionOrder }}
                 {...item.props}
@@ -137,6 +170,14 @@ export function ProjectDetails(props: ProjectDetailsProps) {
                 {...item.props}
               />
             )
+          case 'SequencingSection':
+            return (
+              <SequencingSection
+                key={item.props.id}
+                {...{ nested, sectionOrder }}
+                {...item.props}
+              />
+            )
           case 'PermissionsSection':
             return (
               <PermissionsSection
@@ -145,33 +186,9 @@ export function ProjectDetails(props: ProjectDetailsProps) {
                 {...item.props}
               />
             )
-          case 'MultichainPermissionsSection':
-            return (
-              <MultichainPermissionsSection
-                key={item.props.id}
-                {...{ nested, sectionOrder }}
-                {...item.props}
-              />
-            )
           case 'ContractsSection':
             return (
               <ContractsSection
-                key={item.props.id}
-                {...{ nested, sectionOrder }}
-                {...item.props}
-              />
-            )
-          case 'MultichainContractsSection':
-            return (
-              <MultiChainContractsSection
-                key={item.props.id}
-                {...{ nested, sectionOrder }}
-                {...item.props}
-              />
-            )
-          case 'KnowledgeNuggetsSection':
-            return (
-              <KnowledgeNuggetsSection
                 key={item.props.id}
                 {...{ nested, sectionOrder }}
                 {...item.props}

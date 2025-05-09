@@ -6,25 +6,29 @@ import type {
   StatResults,
 } from '@/types'
 
+import { assert, type Block, type Transaction } from '@l2beat/shared-pure'
 import {
   EIP712_methods,
   ENTRY_POINT_ADDRESS_0_6_0,
   ENTRY_POINT_ADDRESS_0_7_0,
+  ENTRY_POINT_ADDRESS_0_8_0,
+  ERC20ROUTER_TRANSACTION_SELECTOR,
+  ERC20ROUTER_methods,
   ERC4337_methods,
   MULTICALLV3_methods,
   MULTICALL_V3,
   MULTICALL_V3_ZKSYNCERA,
-  Method,
-  Operation,
+  type Method,
+  type Operation,
   SAFE_EXEC_TRANSACTION_SELECTOR,
   SAFE_MULTI_SEND_CALL_ONLY_1_3_0,
   SAFE_methods,
   isEip712,
+  isErc20Router,
   isErc4337,
   isGnosisSafe,
   isMulticallv3,
-} from '@l2beat/shared'
-import { assert, Block, Transaction } from '@l2beat/shared-pure'
+} from '@l2beat/shared/uops'
 import { generateId } from '../../utils/generateId'
 import { rankBlocks } from '../../utils/rankBlocks'
 import { traverseOperationTree } from '../../utils/traverseOperationTree'
@@ -96,12 +100,14 @@ export class RpcCounter implements Counter {
     const methods = ERC4337_methods.concat(SAFE_methods)
       .concat(EIP712_methods)
       .concat(MULTICALLV3_methods)
+      .concat(ERC20ROUTER_methods)
 
     if (
       isErc4337(tx) ||
       isGnosisSafe(tx) ||
       isEip712(tx) ||
-      isMulticallv3(tx)
+      isMulticallv3(tx) ||
+      isErc20Router(tx)
     ) {
       const countedOperation = this.countUserOperations(
         tx.data as string,
@@ -179,7 +185,23 @@ export class RpcCounter implements Counter {
         }
       }
 
-      const operations = method.count(operation.calldata)
+      let operations = []
+      try {
+        operations = method.count(operation.calldata)
+      } catch {
+        return {
+          id: generateId(),
+          level,
+          count: 1,
+          methodSelector: selector,
+          methodSignature: method.signature,
+          methodName: method.name,
+          contractName: method.contractName,
+          contractAddress: operation.to ?? '',
+          children: [],
+        }
+      }
+
       let count = 0
       const children: CountedOperation[] = []
       for (const operation of operations) {
@@ -235,7 +257,9 @@ export class RpcCounter implements Counter {
         if (
           operation.contractAddress?.toLowerCase() !==
             ENTRY_POINT_ADDRESS_0_6_0 &&
-          operation.contractAddress?.toLowerCase() !== ENTRY_POINT_ADDRESS_0_7_0
+          operation.contractAddress?.toLowerCase() !==
+            ENTRY_POINT_ADDRESS_0_7_0 &&
+          operation.contractAddress?.toLowerCase() !== ENTRY_POINT_ADDRESS_0_8_0
         ) {
           return
         }
@@ -269,6 +293,8 @@ export class RpcCounter implements Counter {
         return 'ERC-4337 Entry Point 0.6.0'
       case ENTRY_POINT_ADDRESS_0_7_0:
         return 'ERC-4337 Entry Point 0.7.0'
+      case ENTRY_POINT_ADDRESS_0_8_0:
+        return 'ERC-4337 Entry Point 0.8.0'
       case SAFE_MULTI_SEND_CALL_ONLY_1_3_0:
         return 'Safe: Multi Send Call Only 1.3.0'
       case SAFE_EXEC_TRANSACTION_SELECTOR:
@@ -282,6 +308,8 @@ export class RpcCounter implements Counter {
     switch (selector) {
       case SAFE_EXEC_TRANSACTION_SELECTOR:
         return 'Safe: Singleton 1.3.0'
+      case ERC20ROUTER_TRANSACTION_SELECTOR:
+        return 'ERC-20 Router'
     }
 
     switch (type) {
@@ -315,7 +343,9 @@ export class RpcCounter implements Counter {
             operation.contractAddress?.toLowerCase() !==
               ENTRY_POINT_ADDRESS_0_6_0 &&
             operation.contractAddress?.toLowerCase() !==
-              ENTRY_POINT_ADDRESS_0_7_0
+              ENTRY_POINT_ADDRESS_0_7_0 &&
+            operation.contractAddress?.toLowerCase() !==
+              ENTRY_POINT_ADDRESS_0_8_0
           ) {
             return
           }

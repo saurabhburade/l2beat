@@ -1,8 +1,6 @@
-import { MainPageHeader } from '~/components/main-page-header'
 import { getScalingArchivedEntries } from '~/server/features/scaling/archived/get-scaling-archived-entries'
 import { getDefaultMetadata } from '~/utils/metadata'
-import { ScalingFilterContextProvider } from '../_components/scaling-filter-context'
-import { ScalingArchivedTables } from './_components/scaling-archived-tables'
+import { ScalingArchivedPage } from './_page'
 
 export const metadata = getDefaultMetadata({
   openGraph: {
@@ -12,12 +10,5 @@ export const metadata = getDefaultMetadata({
 
 export default async function Page() {
   const entries = await getScalingArchivedEntries()
-  return (
-    <>
-      <MainPageHeader>Archived</MainPageHeader>
-      <ScalingFilterContextProvider>
-        <ScalingArchivedTables entries={entries} />
-      </ScalingFilterContextProvider>
-    </>
-  )
+  return <ScalingArchivedPage entries={entries} />
 }

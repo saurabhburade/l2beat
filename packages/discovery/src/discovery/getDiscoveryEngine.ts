@@ -1,21 +1,23 @@
-import { HttpClient } from '@l2beat/shared'
+import type { Logger } from '@l2beat/backend-tools'
+import type { HttpClient } from '@l2beat/shared'
 import { assert } from '@l2beat/shared-pure'
-import { DiscoveryChainConfig } from '../config/types'
-import { DiscoveryLogger } from './DiscoveryLogger'
+import type { DiscoveryChainConfig } from '../config/types'
 import { AddressAnalyzer } from './analysis/AddressAnalyzer'
 import { TemplateService } from './analysis/TemplateService'
+import type { DiscoveryPaths } from './config/getDiscoveryPaths'
 import { DiscoveryEngine } from './engine/DiscoveryEngine'
 import { HandlerExecutor } from './handlers/HandlerExecutor'
 import { AllProviders } from './provider/AllProviders'
-import { DiscoveryCache } from './provider/DiscoveryCache'
+import type { DiscoveryCache } from './provider/DiscoveryCache'
 import { ProxyDetector } from './proxies/ProxyDetector'
 import { SourceCodeService } from './source/SourceCodeService'
 
 export function getDiscoveryEngine(
+  paths: DiscoveryPaths,
   chainConfigs: DiscoveryChainConfig[],
   cache: DiscoveryCache,
   http: HttpClient,
-  logger: DiscoveryLogger,
+  logger: Logger,
   chain: string,
 ) {
   const config = chainConfigs.find((c) => c.name === chain)
@@ -26,7 +28,7 @@ export function getDiscoveryEngine(
   const proxyDetector = new ProxyDetector()
   const sourceCodeService = new SourceCodeService()
   const handlerExecutor = new HandlerExecutor()
-  const templateService = new TemplateService()
+  const templateService = new TemplateService(paths.discovery)
   const addressAnalyzer = new AddressAnalyzer(
     proxyDetector,
     sourceCodeService,

@@ -1,6 +1,6 @@
-import { EthereumAddress, UnixTime } from '@l2beat/shared-pure'
+import { type EthereumAddress, UnixTime } from '@l2beat/shared-pure'
 
-import { BigQueryClientQuery } from '../../../../peripherals/bigquery/BigQueryClient'
+import type { BigQueryClientQuery } from '../../../../peripherals/bigquery/BigQueryClient'
 
 export function getTransferQuery(
   transfersConfig: { from: EthereumAddress; to: EthereumAddress }[],
@@ -8,14 +8,14 @@ export function getTransferQuery(
   to: UnixTime,
 ): BigQueryClientQuery {
   const params = [
-    from.toDate().toISOString(),
-    to.toDate().toISOString(),
+    UnixTime.toDate(from).toISOString(),
+    UnixTime.toDate(to).toISOString(),
     ...transfersConfig.flatMap((c) => [
       c.from.toLowerCase(),
       c.to.toLowerCase(),
     ]),
-    from.toDate().toISOString(),
-    to.toDate().toISOString(),
+    UnixTime.toDate(from).toISOString(),
+    UnixTime.toDate(to).toISOString(),
   ]
 
   const query = `

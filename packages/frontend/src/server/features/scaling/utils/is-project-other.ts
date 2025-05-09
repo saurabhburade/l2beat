@@ -1,18 +1,15 @@
-import { type ReasonForBeingInOther } from '@l2beat/config/build/src/common/ReasonForBeingInOther'
+import type { ProjectScalingInfo } from '@l2beat/config'
 import { featureFlags } from '~/consts/feature-flags'
 
-export function isProjectOther<
-  T extends {
-    display: {
-      reasonsForBeingOther?: ReasonForBeingInOther[]
-      category: string
-    }
-  },
->(project: T) {
+export function isProjectOther(
+  scalingInfo: ProjectScalingInfo,
+  previewRecategorisation?: boolean,
+) {
+  const migrated = featureFlags.othersMigrated() || !!previewRecategorisation
   return (
-    (featureFlags.othersMigrated() &&
-      !!project.display.reasonsForBeingOther &&
-      project.display.reasonsForBeingOther.length > 0) ||
-    project.display.category === 'Other'
+    (migrated &&
+      !!scalingInfo.reasonsForBeingOther &&
+      scalingInfo.reasonsForBeingOther.length > 0) ||
+    scalingInfo.type === 'Other'
   )
 }

@@ -1,87 +1,72 @@
-import {
-  type BlockchainDaLayer,
-  type DacBridge,
-  type DacDaLayer,
-  type EnshrinedBridge,
-  type EthereumDaLayer,
-  type NoDaBridge,
-  type OnChainDaBridge,
-} from '@l2beat/config'
-import {
-  type ContractsVerificationStatuses,
-  type ManuallyVerifiedContracts,
-} from '@l2beat/shared-pure'
-import { mapBridgeRisksToRosetteValues } from '~/app/(side-nav)/data-availability/_utils/map-risks-to-rosette-values'
-import { type ProjectDetailsSection } from '~/components/projects/sections/types'
-import { type RosetteValue } from '~/components/rosette/types'
-import { type ProjectsChangeReport } from '~/server/features/projects-change-report/get-projects-change-report'
-import { getMultiChainContractsSection } from '~/utils/project/contracts-and-permissions/get-multichain-contract-section'
-import { getMultichainPermissionsSection } from '~/utils/project/contracts-and-permissions/get-multichain-permissions-section'
+import type { Project } from '@l2beat/config'
+import type { ProjectDetailsSection } from '~/components/projects/sections/types'
+import type { RosetteValue } from '~/components/rosette/types'
+import type { ProjectsChangeReport } from '~/server/features/projects-change-report/get-projects-change-report'
+import { getContractUtils } from '~/utils/project/contracts-and-permissions/get-contract-utils'
+import { getContractsSection } from '~/utils/project/contracts-and-permissions/get-contracts-section'
+import { getPermissionsSection } from '~/utils/project/contracts-and-permissions/get-permissions-section'
+import { getDiagramParams } from '~/utils/project/get-diagram-params'
 import { toTechnologyRisk } from '~/utils/project/risk-summary/to-technology-risk'
-import { getDaOtherConsiderationsSection } from './get-da-other-considerations-section'
 import { getDaProjectRiskSummarySection } from './get-da-project-risk-summary-section'
-import { getPermissionedEntities } from './get-permissioned-entities'
+import { getDaThroughputSection } from './get-da-throughput-section'
 
 type RegularDetailsParams = {
-  daLayer: BlockchainDaLayer | DacDaLayer
-  daBridge: OnChainDaBridge | DacBridge | NoDaBridge
+  layer: Project<
+    'daLayer' | 'statuses' | 'display',
+    'milestones' | 'isUpcoming'
+  >
+  bridge:
+    | Project<'daBridge' | 'display', 'contracts' | 'permissions'>
+    | undefined
   isVerified: boolean
-  contractsVerificationStatuses: ContractsVerificationStatuses
-  manuallyVerifiedContracts: ManuallyVerifiedContracts
   projectsChangeReport: ProjectsChangeReport
-  evaluatedGrissiniValues: RosetteValue[]
+  layerGrissiniValues: RosetteValue[]
+  bridgeGrissiniValues: RosetteValue[]
 }
 
-export function getRegularDaProjectSections({
-  daLayer,
-  daBridge,
+export async function getRegularDaProjectSections({
+  layer,
+  bridge,
   isVerified,
-  contractsVerificationStatuses,
-  manuallyVerifiedContracts,
   projectsChangeReport,
-  evaluatedGrissiniValues,
+  layerGrissiniValues,
+  bridgeGrissiniValues,
 }: RegularDetailsParams) {
-  const relatedScalingProject =
-    daBridge.type === 'DAC' && daBridge.usedIn.length === 1
-      ? daBridge.usedIn[0]
-      : undefined
+  const contractUtils = await getContractUtils()
 
-  const permissionsSection = getMultichainPermissionsSection(
-    {
-      id: daLayer.id,
-      bridge: daBridge,
-      isUnderReview: !!daLayer.isUnderReview,
-      permissions: daBridge.permissions,
-      dacUsedIn: relatedScalingProject,
-    },
-    contractsVerificationStatuses,
-    manuallyVerifiedContracts,
-  )
+  const permissionsSection =
+    bridge?.permissions &&
+    getPermissionsSection(
+      {
+        type: 'layer2', // TODO: This is needed for common contracts and doesn't work for da
+        id: layer.id,
+        isUnderReview: layer.statuses.isUnderReview,
+        permissions: bridge.permissions,
+      },
+      contractUtils,
+    )
 
-  const contractsSection = getMultiChainContractsSection(
-    {
-      id: daBridge.id,
-      isVerified,
-      slug: daBridge.display.slug,
-      contracts: daBridge.contracts,
-      isUnderReview: daLayer.isUnderReview,
-      dacUsedIn: relatedScalingProject,
-    },
-    contractsVerificationStatuses,
-    manuallyVerifiedContracts,
-    projectsChangeReport,
-  )
+  const contractsSection =
+    bridge?.contracts &&
+    getContractsSection(
+      {
+        type: 'layer2', // TODO: This is needed for common contracts and doesn't work for da
+        id: bridge.id,
+        isVerified,
+        slug: bridge.slug,
+        contracts: bridge.contracts ?? {},
+        isUnderReview: layer.statuses.isUnderReview,
+      },
+      contractUtils,
+      projectsChangeReport,
+    )
 
   const riskSummarySection = getDaProjectRiskSummarySection(
-    daLayer,
-    daBridge,
+    layer,
+    bridge,
     isVerified,
   )
-
-  const otherConsiderationsSection = getDaOtherConsiderationsSection(
-    daLayer,
-    daBridge,
-  )
+  const throughputSection = await getDaThroughputSection(layer)
 
   const daLayerItems: ProjectDetailsSection[] = []
 
@@ -90,9 +75,9 @@ export function getRegularDaProjectSections({
     props: {
       id: 'da-layer-risk-analysis',
       title: 'Risk analysis',
-      isUnderReview: !!daLayer.isUnderReview,
+      isUnderReview: layer.statuses.isUnderReview,
       isVerified,
-      grissiniValues: evaluatedGrissiniValues,
+      layerGrissiniValues,
     },
   })
 
@@ -101,15 +86,12 @@ export function getRegularDaProjectSections({
     props: {
       id: 'da-layer-technology',
       title: 'Technology',
-      diagram: {
-        type: 'da-layer-technology',
-        slug: daLayer.display.slug,
-      },
-      content: daLayer.technology.description,
+      diagram: getDiagramParams('da-layer-technology', layer.slug),
+      content: layer.daLayer.technology.description,
       mdClassName:
         'da-beat text-gray-850 leading-snug dark:text-gray-400 md:text-lg',
-      risks: daLayer.technology.risks?.map(toTechnologyRisk),
-      references: daLayer.technology.references,
+      risks: layer.daLayer.technology.risks?.map(toTechnologyRisk),
+      references: layer.daLayer.technology.references,
     },
   })
 
@@ -120,10 +102,10 @@ export function getRegularDaProjectSections({
     props: {
       id: 'da-bridge-risk-analysis',
       title: 'Risk analysis',
-      isUnderReview: !!daLayer.isUnderReview,
+      isUnderReview: layer.statuses.isUnderReview,
       isVerified,
-      grissiniValues: mapBridgeRisksToRosetteValues(daBridge.risks),
-      hideRisks: daBridge.type === 'NoBridge',
+      isNoBridge: !bridge || !!bridge.daBridge.risks.isNoBridge,
+      bridgeGrissiniValues,
     },
   })
 
@@ -132,24 +114,26 @@ export function getRegularDaProjectSections({
     props: {
       id: 'da-bridge-technology',
       title: 'Technology',
-      diagram: {
-        type: 'da-bridge-technology',
-        slug: `${daLayer.display.slug}-${daBridge.display.slug}`,
-      },
-      content: daBridge.technology.description,
+      diagram: getDiagramParams(
+        'da-bridge-technology',
+        `${layer.slug}-${bridge?.slug ?? 'no-bridge'}`,
+      ),
+      content:
+        bridge?.daBridge.technology.description ??
+        'No DA bridge is selected. Without a DA bridge, Ethereum has no proof of data availability for this project.',
       mdClassName:
         'da-beat text-gray-850 leading-snug dark:text-gray-400 md:text-lg',
-      risks: daBridge.technology.risks?.map(toTechnologyRisk),
-      references: daBridge.technology.references,
+      risks: bridge?.daBridge.technology.risks?.map(toTechnologyRisk),
+      references: bridge?.daBridge.technology.references,
     },
   })
 
   if (permissionsSection) {
     daBridgeItems.push({
-      type: 'MultichainPermissionsSection',
+      type: 'PermissionsSection',
       props: {
         ...permissionsSection,
-        permissionedEntities: getPermissionedEntities(daBridge),
+        permissionedEntities: bridge.daBridge.dac?.knownMembers,
         id: 'da-bridge-permissions',
         title: 'Permissions',
       },
@@ -158,7 +142,7 @@ export function getRegularDaProjectSections({
 
   if (contractsSection) {
     daBridgeItems.push({
-      type: 'MultichainContractsSection',
+      type: 'ContractsSection',
       props: {
         ...contractsSection,
         id: 'da-bridge-contracts',
@@ -168,6 +152,31 @@ export function getRegularDaProjectSections({
   }
 
   const items: ProjectDetailsSection[] = []
+
+  if (throughputSection) {
+    items.push({
+      type: 'ThroughputSection',
+      props: {
+        id: 'throughput',
+        title: 'Throughput',
+        ...throughputSection,
+      },
+    })
+  }
+
+  if (!layer.isUpcoming && layer.milestones && layer.milestones.length > 0) {
+    const sortedMilestones = layer.milestones.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    )
+    items.push({
+      type: 'MilestonesAndIncidentsSection',
+      props: {
+        id: 'milestones-and-incidents',
+        title: 'Milestones & Incidents',
+        milestones: sortedMilestones,
+      },
+    })
+  }
 
   if (
     riskSummarySection.layer.risks.concat(riskSummarySection.bridge.risks)
@@ -187,8 +196,8 @@ export function getRegularDaProjectSections({
     type: 'Group',
     props: {
       id: 'da-layer',
-      title: daLayer.display.name,
-      description: daLayer.display.description,
+      title: layer.name,
+      description: layer.display.description,
       items: daLayerItems,
     },
   })
@@ -196,23 +205,16 @@ export function getRegularDaProjectSections({
   if (daBridgeItems.length > 0) {
     items.push({
       type: 'Group',
-      sideNavTitle: daBridge.type === 'NoBridge' ? 'DA Bridge' : undefined,
+      sideNavTitle: !!bridge?.daBridge.risks.isNoBridge
+        ? 'No DA Bridge'
+        : undefined,
       props: {
         id: 'da-bridge',
-        title: daBridge.display.name,
-        description: daBridge.display.description,
+        title: bridge?.daBridge.name ?? 'No DA Bridge',
+        description:
+          bridge?.display.description ??
+          'The risk profile in this page refers to L2s that do not integrate with a data availability bridge. Projects not integrating with a functional DA bridge rely only on the data availability attestation of the sequencer.',
         items: daBridgeItems,
-      },
-    })
-  }
-
-  if (otherConsiderationsSection.items.length > 0) {
-    items.push({
-      type: 'TechnologySection',
-      props: {
-        id: 'other-considerations',
-        title: 'Other considerations',
-        ...otherConsiderationsSection,
       },
     })
   }
@@ -221,25 +223,40 @@ export function getRegularDaProjectSections({
 }
 
 type EthereumDetailsParams = {
-  daLayer: EthereumDaLayer
-  daBridge: EnshrinedBridge
+  layer: Project<'daLayer' | 'statuses' | 'display', 'milestones'>
+  bridge: Project<'daBridge', 'contracts' | 'permissions'>
   isVerified: boolean
-  evaluatedGrissiniValues: RosetteValue[]
+  layerGrissiniValues: RosetteValue[]
+  bridgeGrissiniValues: RosetteValue[]
 }
 
-export function getEthereumDaProjectSections({
-  daLayer,
-  daBridge,
+export async function getEthereumDaProjectSections({
+  layer,
+  bridge,
   isVerified,
-  evaluatedGrissiniValues,
+  layerGrissiniValues,
+  bridgeGrissiniValues,
 }: EthereumDetailsParams) {
   const riskSummarySection = getDaProjectRiskSummarySection(
-    daLayer,
-    daBridge,
+    layer,
+    bridge,
     isVerified,
   )
 
   const items: ProjectDetailsSection[] = []
+
+  const throughputSection = await getDaThroughputSection(layer)
+
+  if (throughputSection) {
+    items.push({
+      type: 'ThroughputSection',
+      props: {
+        id: 'throughput',
+        title: 'Throughput',
+        ...throughputSection,
+      },
+    })
+  }
 
   if (
     riskSummarySection.layer.risks.concat(riskSummarySection.bridge.risks)
@@ -260,10 +277,11 @@ export function getEthereumDaProjectSections({
     props: {
       id: 'da-layer-risk-analysis',
       title: 'Risk analysis',
-      isUnderReview: !!daLayer.isUnderReview,
+      isUnderReview: layer.statuses.isUnderReview,
       isVerified,
-      grissiniValues: evaluatedGrissiniValues,
-      description: daLayer.display.description,
+      layerGrissiniValues,
+      bridgeGrissiniValues,
+      description: layer.display.description,
     },
   })
 
@@ -272,38 +290,19 @@ export function getEthereumDaProjectSections({
     props: {
       id: 'da-layer-technology',
       title: 'Technology',
-      diagram: {
-        type: 'da-layer-technology',
-        slug: daLayer.display.slug,
-      },
-      content: daLayer.technology.description.concat(
+      diagram: getDiagramParams('da-layer-technology', layer.slug),
+      content: layer.daLayer.technology.description.concat(
         '\n\n',
-        daBridge.technology.description,
+        bridge.daBridge.technology.description,
       ),
       mdClassName:
         'da-beat text-gray-850 leading-snug dark:text-gray-400 md:text-lg',
-      risks: daLayer.technology.risks?.map(toTechnologyRisk),
-      references: daLayer.technology.references?.concat(
-        ...(daBridge.technology.references ?? []),
+      risks: layer.daLayer.technology.risks?.map(toTechnologyRisk),
+      references: layer.daLayer.technology.references?.concat(
+        ...(bridge.daBridge.technology.references ?? []),
       ),
     },
   })
-
-  const otherConsiderationsSection = getDaOtherConsiderationsSection(
-    daLayer,
-    daBridge,
-  )
-
-  if (otherConsiderationsSection.items.length > 0) {
-    items.push({
-      type: 'TechnologySection',
-      props: {
-        id: 'other-considerations',
-        title: 'Other considerations',
-        ...otherConsiderationsSection,
-      },
-    })
-  }
 
   return items
 }

@@ -1,19 +1,14 @@
-import { Logger } from '@l2beat/backend-tools'
+import type { Logger } from '@l2beat/backend-tools'
 import { assert, UnixTime } from '@l2beat/shared-pure'
-import { ChildIndexer, Retries } from '@l2beat/uif'
-import { mean } from 'lodash'
+import { ChildIndexer, Indexer } from '@l2beat/uif'
+import mean from 'lodash/mean'
 
-import { Database, FinalityRecord } from '@l2beat/database'
+import type { Database, FinalityRecord } from '@l2beat/database'
 import {
   batchToTimeToInclusionDelays,
   batchesToStateUpdateDelays,
 } from './analyzers/types/BaseAnalyzer'
-import { FinalityConfig } from './types/FinalityConfig'
-
-const UPDATE_RETRY_STRATEGY = Retries.exponentialBackOff({
-  maxAttempts: 10,
-  initialTimeoutMs: 1000,
-})
+import type { FinalityConfig } from './types/FinalityConfig'
 
 export class FinalityIndexer extends ChildIndexer {
   readonly indexerId: string
@@ -31,7 +26,7 @@ export class FinalityIndexer extends ChildIndexer {
       }),
       [parentIndexer],
       {
-        updateRetryStrategy: UPDATE_RETRY_STRATEGY,
+        updateRetryStrategy: Indexer.getInfiniteRetryStrategy(),
       },
     )
     this.indexerId = `finality_indexer_${configuration.projectId.toString()}`
@@ -44,9 +39,9 @@ export class FinalityIndexer extends ChildIndexer {
 
   override async update(from: number, to: number): Promise<number> {
     from -= 1 // TODO: refactor logic after uif update
-    const targetTimestamp = new UnixTime(to).toStartOf('day')
+    const targetTimestamp = UnixTime.toStartOf(to, 'day')
 
-    if (to < this.configuration.minTimestamp.toNumber()) {
+    if (to < this.configuration.minTimestamp) {
       this.logger.debug('Update skipped: target earlier than minimumTimestamp')
       return to
     }
@@ -61,8 +56,8 @@ export class FinalityIndexer extends ChildIndexer {
       return to
     }
 
-    const now = UnixTime.now().toStartOf('day')
-    if (targetTimestamp.toNumber() < now.add(-1, 'days').toNumber()) {
+    const now = UnixTime.toStartOf(UnixTime.now(), 'day')
+    if (targetTimestamp < now - 1 * UnixTime.DAY) {
       this.logger.debug('Update skipped: target in the past', {
         from,
         to,
@@ -77,6 +72,17 @@ export class FinalityIndexer extends ChildIndexer {
     )
 
     if (finalityData) {
+      // Sometimes if finality is wrongly configured we get negative values,
+      // we do not want to save those data to db
+      assert(
+        finalityData.minimumTimeToInclusion >= 0 &&
+          finalityData.averageTimeToInclusion > 0 &&
+          finalityData.maximumTimeToInclusion > 0 &&
+          (finalityData.averageStateUpdate === null ||
+            finalityData.averageStateUpdate >= 0),
+        `Finality data cannot be negative: ${this.configuration.projectId}`,
+      )
+
       await this.db.finality.insert(finalityData)
     }
 
@@ -95,7 +101,10 @@ export class FinalityIndexer extends ChildIndexer {
       this.configuration.projectId,
     )
 
-    return !!latestSynced?.timestamp.gte(targetTimestamp)
+    return (
+      latestSynced?.timestamp !== undefined &&
+      latestSynced.timestamp >= targetTimestamp
+    )
   }
 
   async getFinalityData(
@@ -105,7 +114,7 @@ export class FinalityIndexer extends ChildIndexer {
     const { timeToInclusion, stateUpdate } = configuration.analyzers
     const { stateUpdateMode } = configuration
 
-    const from = to.add(-1, 'days')
+    const from = to - 1 * UnixTime.DAY
 
     const t2iBatches = await timeToInclusion.analyzeInterval(from, to)
     if (!t2iBatches) {
@@ -158,7 +167,7 @@ export class FinalityIndexer extends ChildIndexer {
     )
 
     const safeHeight =
-      indexerState?.safeHeight ?? this.configuration.minTimestamp.toNumber()
+      indexerState?.safeHeight ?? this.configuration.minTimestamp
 
     return { safeHeight }
   }
@@ -177,9 +186,7 @@ export class FinalityIndexer extends ChildIndexer {
     const indexerState = await this.db.indexerState.findByIndexerId(
       this.indexerId,
     )
-    return (
-      indexerState?.safeHeight ?? this.configuration.minTimestamp.toNumber()
-    )
+    return indexerState?.safeHeight ?? this.configuration.minTimestamp
   }
 
   override async setSafeHeight(safeHeight: number): Promise<void> {

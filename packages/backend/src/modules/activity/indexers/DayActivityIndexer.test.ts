@@ -1,12 +1,12 @@
 import { Logger } from '@l2beat/backend-tools'
-import { Database } from '@l2beat/database'
+import type { Database } from '@l2beat/database'
 import { ProjectId, UnixTime } from '@l2beat/shared-pure'
 import { expect, mockFn, mockObject } from 'earl'
 import { mockDatabase } from '../../../test/database'
-import { IndexerService } from '../../../tools/uif/IndexerService'
+import type { IndexerService } from '../../../tools/uif/IndexerService'
 import { _TEST_ONLY_resetUniqueIds } from '../../../tools/uif/ids'
 import { DayActivityIndexer } from './DayActivityIndexer'
-import { DayActivityIndexerDeps, TxsCountService } from './types'
+import type { DayActivityIndexerDeps, TxsCountService } from './types'
 
 const START = UnixTime.fromDate(new Date('2021-01-01T00:00:00Z'))
 
@@ -56,8 +56,8 @@ describe(DayActivityIndexer.name, () => {
 
       const mockActvityRecords = [
         activityRecord('a', START, 5),
-        activityRecord('a', START.add(1, 'days'), 4),
-        activityRecord('a', START.add(2, 'days'), 2),
+        activityRecord('a', START + 1 * UnixTime.DAY, 4),
+        activityRecord('a', START + 2 * UnixTime.DAY, 2),
       ]
 
       const txsCountService = mockObject<TxsCountService>({
@@ -103,8 +103,8 @@ function activityRecord(
     timestamp,
     count,
     uopsCount,
-    start: timestamp.toStartOf('day').toNumber(),
-    end: timestamp.toEndOf('day').add(-1, 'seconds').toNumber(),
+    start: UnixTime.toStartOf(timestamp, 'day'),
+    end: UnixTime.toEndOf(timestamp, 'day') - 1,
   }
 }
 

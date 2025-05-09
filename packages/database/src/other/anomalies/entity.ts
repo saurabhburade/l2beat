@@ -1,6 +1,6 @@
-import { TrackedTxsConfigSubtype, UnixTime } from '@l2beat/shared-pure'
-import { Insertable, Selectable } from 'kysely'
-import { Anomaly } from '../../kysely/generated/types'
+import { type TrackedTxsConfigSubtype, UnixTime } from '@l2beat/shared-pure'
+import type { Insertable, Selectable } from 'kysely'
+import type { Anomaly } from '../../kysely/generated/types'
 
 export interface AnomalyRecord {
   timestamp: UnixTime
@@ -12,7 +12,7 @@ export interface AnomalyRecord {
 export function toRow(record: AnomalyRecord): Insertable<Anomaly> {
   return {
     ...record,
-    timestamp: record.timestamp.toDate(),
+    timestamp: UnixTime.toDate(record.timestamp),
   }
 }
 

@@ -5,21 +5,24 @@ import {
   TooltipTrigger,
 } from '~/components/core/tooltip/tooltip'
 import {
-  TypeCell,
   TypeExplanationTooltip,
-} from '~/components/table/cells/type-cell'
+  TypeInfo,
+} from '~/components/table/cells/type-info'
 import { getScalingCommonProjectColumns } from '~/components/table/utils/common-project-columns/scaling-common-project-columns'
 import { LIVENESS_ANOMALIES_COMING_SOON_PROJECTS } from '~/consts/projects'
 import { InfoIcon } from '~/icons/info'
 import { AnomalyIndicator } from '../anomaly-indicator'
 import { IntervalsHeader } from './intervals-header'
 import { LivenessIntervalCell } from './liveness-interval-cell'
-import { type ScalingLivenessTableEntry } from './to-table-entry'
+import type { ScalingLivenessTableEntry } from './to-table-entry'
 
 const columnHelper = createColumnHelper<ScalingLivenessTableEntry>()
 
 export const columns = [
-  ...getScalingCommonProjectColumns(columnHelper),
+  ...getScalingCommonProjectColumns(
+    columnHelper,
+    (row) => `/scaling/projects/${row.slug}`,
+  ),
   columnHelper.group({
     id: 'data',
     header: () => <IntervalsHeader average={true} />,
@@ -68,7 +71,7 @@ export const columns = [
   columnHelper.accessor('category', {
     header: 'Type',
     cell: (ctx) => (
-      <TypeCell provider={ctx.row.original.provider}>{ctx.getValue()}</TypeCell>
+      <TypeInfo stack={ctx.row.original.stack}>{ctx.getValue()}</TypeInfo>
     ),
     meta: {
       tooltip: <TypeExplanationTooltip showOnlyRollupsDefinitions />,
@@ -79,13 +82,14 @@ export const columns = [
     cell: (ctx) => {
       const entry = ctx.row.original
       const showComingSoon =
-        !entry.data?.syncStatus.isSynced ||
+        !entry.data?.isSynced ||
         LIVENESS_ANOMALIES_COMING_SOON_PROJECTS.includes(entry.id.toString())
 
       return (
         <AnomalyIndicator
-          anomalyEntries={entry.anomalies}
+          anomalies={entry.anomalies}
           showComingSoon={showComingSoon}
+          hasTrackedContractsChanged={entry.hasTrackedContractsChanged}
         />
       )
     },

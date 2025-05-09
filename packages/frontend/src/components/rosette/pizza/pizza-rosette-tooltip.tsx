@@ -1,18 +1,21 @@
 import { UnderReviewBadge } from '../../badge/under-review-badge'
 import { RiskValue } from '../risk-value'
-import { type PizzaRosetteCellProps } from './pizza-rosette-cell'
+import type { RosetteValue } from '../types'
 import { PizzaRosetteIcon } from './pizza-rosette-icon'
 import { PizzaRosetteLabels } from './pizza-rosette-labels'
 
 export function PizzaRosetteTooltip({
   values,
   isUnderReview,
-}: PizzaRosetteCellProps) {
+}: {
+  values: RosetteValue[]
+  isUnderReview?: boolean
+}) {
   if (isUnderReview) {
     return (
       <div className="w-[300px]">
-        <div className="mb-4">
-          <span className="text-base font-bold">Risk analysis</span> is{' '}
+        <div className="mb-3">
+          <span className="heading-16">Risk analysis</span> is{' '}
           <UnderReviewBadge />
         </div>
 
@@ -28,15 +31,14 @@ export function PizzaRosetteTooltip({
 
   return (
     <div className="flex flex-col">
-      <span className="text-base font-bold">
-        <span className="mr-2">Risk analysis</span>
-      </span>
+      <span className="heading-16 mb-2">Risk analysis</span>
       <div className="flex items-center gap-6">
         <div className="relative flex size-[200px] items-center justify-center">
           <PizzaRosetteIcon
             values={values}
             className="scale-75"
             isUnderReview={isUnderReview}
+            background="surface"
           />
           <PizzaRosetteLabels
             values={values}
@@ -45,7 +47,7 @@ export function PizzaRosetteTooltip({
             size="small"
           />
         </div>
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           {values.map((value) => (
             <RiskValue key={value.name} {...value} />
           ))}

@@ -1,26 +1,30 @@
-import { DiscoveryOutput } from '@l2beat/discovery-types'
+import type { DiscoveryOutput } from '@l2beat/discovery'
 import { EthereumAddress } from '@l2beat/shared-pure'
 import { getContractType } from './getContractType'
-import { ApiAddressType } from './types'
+import { toAddress } from './toAddress'
+import type { ApiAddressType } from './types'
 
 export type ContractsMeta = Record<
   string,
   { name?: string; type: ApiAddressType }
 >
 
-export function getMeta(discovery: DiscoveryOutput): ContractsMeta {
+export function getMeta(discoveries: DiscoveryOutput[]): ContractsMeta {
   const meta: Record<string, { name?: string; type: ApiAddressType }> = {}
-  for (const contract of discovery.contracts) {
-    const address = contract.address.toString()
-    meta[address] = {
-      name: contract.name || undefined,
-      type: getContractType(contract),
+  for (const discovery of discoveries) {
+    for (const entry of discovery.entries) {
+      const address = toAddress(discovery.chain, entry.address)
+      if (entry.type === 'EOA') {
+        meta[address] = { name: entry.name || undefined, type: 'EOA' }
+      } else {
+        meta[address] = {
+          name: entry.name || undefined,
+          type: getContractType(entry),
+        }
+      }
     }
+    const zero = toAddress(discovery.chain, EthereumAddress.ZERO)
+    meta[zero] = { name: 'ZERO', type: 'Unknown' }
   }
-  for (const eoa of discovery.eoas) {
-    const address = eoa.address.toString()
-    meta[address] = { name: eoa.name || undefined, type: 'EOA' }
-  }
-  meta[EthereumAddress.ZERO] = { name: 'ZERO', type: 'Unknown' }
   return meta
 }

@@ -1,39 +1,32 @@
-import {
-  type DaBridge,
-  type DaLayer,
-  type ScalingProjectRisk,
-} from '@l2beat/config'
-import { type DaRiskSummarySectionProps } from '~/components/projects/sections/da-risk-summary-section'
-import { type ProjectSectionProps } from '~/components/projects/sections/types'
+import type { Project, ProjectRisk } from '@l2beat/config'
+import type { DaRiskSummarySectionProps } from '~/components/projects/sections/da-risk-summary-section'
+import type { ProjectSectionProps } from '~/components/projects/sections/types'
 import { groupRisks } from '~/utils/project/risk-summary/group-risks'
 
 export function getDaProjectRiskSummarySection(
-  layer: DaLayer,
-  bridge: DaBridge,
+  layer: Project<'daLayer'>,
+  bridge: Project<'daBridge', 'contracts' | 'permissions'> | undefined,
   isVerified: boolean,
 ): Omit<DaRiskSummarySectionProps, keyof ProjectSectionProps> {
   const bridgeSections = [
     {
       id: 'da-bridge-contracts',
-      value:
-        bridge.type === 'OnChainBridge' || bridge.type === 'DAC'
-          ? bridge.contracts
-          : { risks: [] },
+      value: bridge?.contracts ?? { risks: [] },
     },
     {
       id: 'da-bridge-technology',
-      value: bridge.technology,
+      value: bridge?.daBridge.technology,
     },
   ]
 
   const layerSections = [
     {
       id: 'da-layer-technology',
-      value: layer.technology,
+      value: layer.daLayer.technology,
     },
   ]
 
-  const layerRisks: (ScalingProjectRisk & { referencedId: string })[] = []
+  const layerRisks: (ProjectRisk & { referencedId: string })[] = []
 
   for (const { id, value } of layerSections) {
     if (value.risks) {
@@ -41,25 +34,38 @@ export function getDaProjectRiskSummarySection(
     }
   }
 
-  const bridgeRisks: (ScalingProjectRisk & { referencedId: string })[] = []
+  const bridgeRisks: (ProjectRisk & { referencedId: string })[] = []
 
   for (const { id, value } of bridgeSections) {
-    if (value.risks) {
+    if (value?.risks) {
       bridgeRisks.push(...value.risks.map((x) => ({ ...x, referencedId: id })))
     }
   }
 
+  const areContractsNotVerified = Object.values(
+    bridge?.contracts?.addresses ?? {},
+  )
+    .flat()
+    .some((c) => !c.isVerified)
+
+  const arePermissionsNotVerified = Object.values(bridge?.permissions ?? {})
+    .flat()
+    .flatMap((p) => [...(p.roles ?? []), ...(p.actors ?? [])])
+    .flatMap((p) => p.accounts)
+    .some((a) => !a.isVerified)
+
   return {
     layer: {
-      name: layer.display.name,
+      name: layer.name,
       risks: groupRisks(layerRisks),
     },
     bridge: {
-      name: bridge.display.name,
+      name: bridge?.name ?? 'No DA Bridge',
       risks: groupRisks(bridgeRisks),
+      isVerified: !arePermissionsNotVerified && !areContractsNotVerified,
     },
-    warning: bridge.display.warning,
     isVerified,
+    warning: undefined,
     redWarning: undefined,
   }
 }

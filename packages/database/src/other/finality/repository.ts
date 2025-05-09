@@ -1,8 +1,8 @@
 import { UnixTime } from '@l2beat/shared-pure'
 import { BaseRepository } from '../../BaseRepository'
 import {
-  FinalityRecord,
-  ProjectFinalityRecord,
+  type FinalityRecord,
+  type ProjectFinalityRecord,
   toProjectFinalityRecord,
   toRecord,
   toRow,
@@ -38,7 +38,7 @@ export class FinalityRepository extends BaseRepository {
     const row = await this.db
       .selectFrom('Finality')
       .select(selectFinality)
-      .where('timestamp', '=', timestamp.toDate())
+      .where('timestamp', '=', UnixTime.toDate(timestamp))
       .where('projectId', '=', projectId.toString())
       .limit(1)
       .executeTakeFirst()

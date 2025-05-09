@@ -1,4 +1,5 @@
-import { type VariantProps, cva } from 'class-variance-authority'
+import type { VariantProps } from 'class-variance-authority'
+import { cva } from 'class-variance-authority'
 import React from 'react'
 
 import { Slot } from '@radix-ui/react-slot'
@@ -24,7 +25,7 @@ const buttonVariants = cva(
   },
 )
 
-interface Props
+export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean
@@ -36,7 +37,7 @@ const Button = ({
   size,
   asChild = false,
   ...props
-}: Props & {}) => {
+}: ButtonProps & {}) => {
   const Comp = asChild ? Slot : 'button'
   return (
     <Comp

@@ -1,7 +1,8 @@
-import { ContractValue, ProxyDetails } from '@l2beat/discovery-types'
 import { Bytes, EthereumAddress } from '@l2beat/shared-pure'
-import { IProvider } from '../../provider/IProvider'
+import type { ContractValue } from '../../output/types'
+import type { IProvider } from '../../provider/IProvider'
 import { getPastUpgradesSingleEvent } from '../pastUpgrades'
+import type { ProxyDetails } from '../types'
 
 // keccak256("matic.network.proxy.implementation")
 const IMPLEMENTATION_SLOT = Bytes.fromHex(

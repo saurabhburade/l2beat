@@ -4,7 +4,7 @@ import { describe } from 'mocha'
 
 import { createTrackedTxId } from '@l2beat/shared'
 import { describeDatabase } from '../../test/database'
-import { L2CostRecord } from './entity'
+import type { L2CostRecord } from './entity'
 import { L2CostRepository } from './repository'
 
 describeDatabase(L2CostRepository.name, (db) => {
@@ -33,7 +33,7 @@ describeDatabase(L2CostRepository.name, (db) => {
       blobGasUsed: null,
     },
     {
-      timestamp: START.add(-1, 'hours'),
+      timestamp: START - 1 * UnixTime.HOUR,
       txHash: '0x2',
       configurationId: txIdB,
       gasUsed: 200,
@@ -44,7 +44,7 @@ describeDatabase(L2CostRepository.name, (db) => {
       blobGasUsed: 300,
     },
     {
-      timestamp: START.add(-2, 'hours'),
+      timestamp: START - 2 * UnixTime.HOUR,
       txHash: '0x3',
       configurationId: txIdC,
       gasUsed: 150,
@@ -63,7 +63,7 @@ describeDatabase(L2CostRepository.name, (db) => {
       DATA.map((d, i) => ({
         indexerId: 'indexer',
         id: d.configurationId,
-        minHeight: START.toNumber(),
+        minHeight: START,
         maxHeight: null,
         currentHeight: null,
         properties: JSON.stringify({ projectId: `project-${i}` }),
@@ -107,8 +107,8 @@ describeDatabase(L2CostRepository.name, (db) => {
   describe(L2CostRepository.prototype.getByTimeRange.name, () => {
     it('should return all rows for given time range', async () => {
       const results = await repository.getByTimeRange([
-        START.add(-2, 'hours'),
-        START.add(-1, 'minutes'),
+        START - 2 * UnixTime.HOUR,
+        START - 1 * UnixTime.MINUTE,
       ])
 
       expect(results).toEqualUnsorted([DATA[1]!, DATA[2]!])
@@ -116,11 +116,48 @@ describeDatabase(L2CostRepository.name, (db) => {
 
     it('should return empty array', async () => {
       const results = await repository.getByTimeRange([
-        START.add(5, 'hours'),
-        START.add(6, 'hours'),
+        START + 5 * UnixTime.HOUR,
+        START + 6 * UnixTime.HOUR,
       ])
 
       expect(results).toEqual([])
+    })
+  })
+
+  describe(L2CostRepository.prototype.getGasSumByTimeRangeAndConfigId
+    .name, () => {
+    it('should return sum of gas used for given time range and configurations id', async () => {
+      // add second record to txIdA
+      await repository.insertMany([
+        {
+          timestamp: START - 1 * UnixTime.HOUR,
+          txHash: '0x4',
+          configurationId: txIdA,
+          gasUsed: 200,
+          gasPrice: 1n,
+          calldataLength: 100,
+          calldataGasUsed: 100,
+          blobGasPrice: null,
+          blobGasUsed: null,
+        },
+      ])
+
+      const result = await repository.getGasSumByTimeRangeAndConfigId(
+        [txIdA, txIdB],
+        START - 1 * UnixTime.HOUR,
+        START,
+      )
+
+      expect(result).toEqualUnsorted([
+        {
+          configurationId: txIdA,
+          totalCostInWei: 300n,
+        },
+        {
+          configurationId: txIdB,
+          totalCostInWei: 400n,
+        },
+      ])
     })
   })
 
@@ -148,7 +185,7 @@ describeDatabase(L2CostRepository.name, (db) => {
 
       const records: L2CostRecord[] = [
         {
-          timestamp: START.add(-1, 'hours'),
+          timestamp: START - 1 * UnixTime.HOUR,
           txHash: '0x4',
           configurationId: txIdD,
           gasUsed: 150,
@@ -159,7 +196,7 @@ describeDatabase(L2CostRepository.name, (db) => {
           blobGasUsed: null,
         },
         {
-          timestamp: START.add(1, 'hours'),
+          timestamp: START + 1 * UnixTime.HOUR,
           txHash: '0x45',
           configurationId: txIdD,
           gasUsed: 150,
@@ -170,7 +207,7 @@ describeDatabase(L2CostRepository.name, (db) => {
           blobGasUsed: null,
         },
         {
-          timestamp: START.add(2, 'hours'),
+          timestamp: START + 2 * UnixTime.HOUR,
           txHash: '0x5',
           configurationId: txIdD,
           gasUsed: 150,
@@ -186,7 +223,7 @@ describeDatabase(L2CostRepository.name, (db) => {
         {
           id: txIdD,
           indexerId: 'indexer',
-          minHeight: START.toNumber(),
+          minHeight: START,
           properties: '',
           currentHeight: null,
           maxHeight: null,

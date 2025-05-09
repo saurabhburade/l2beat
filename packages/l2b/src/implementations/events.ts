@@ -1,10 +1,9 @@
-import { IProvider, ProxyDetector, SQLiteCache } from '@l2beat/discovery'
-import { get$Implementations } from '@l2beat/discovery-types'
-import { ExplorerConfig } from '@l2beat/discovery/dist/utils/IEtherscanClient'
-import { CliLogger } from '@l2beat/shared'
+import { type IProvider, ProxyDetector } from '@l2beat/discovery'
+import { get$Implementations } from '@l2beat/discovery'
+import type { CliLogger } from '@l2beat/shared'
 import {
   assert,
-  EthereumAddress,
+  type EthereumAddress,
   Hash256,
   UnixTime,
   formatAsAsciiTable,
@@ -12,24 +11,23 @@ import {
 import chalk from 'chalk'
 import { utils } from 'ethers'
 import { getProvider } from './common/GetProvider'
+import { getExplorerConfig } from './common/getExplorer'
 
-export async function getEvents(
-  logger: CliLogger,
-  address: EthereumAddress,
-  inputTopics: string[],
-  rpcUrl: string,
-  explorerUrl?: string,
-  explorerApiKey?: string,
-  explorerType?: string,
-) {
-  const sqliteCache = new SQLiteCache()
-  await sqliteCache.init()
+export interface EventArgs {
+  address: EthereumAddress
+  topics: string[]
+  rpcUrl: string
+  chainName: string | undefined
+  explorerUrl: string
+  explorerApiKey: string | undefined
+  explorerType: string
+  explorerChainId: number | undefined
+}
 
-  const explorer = {
-    type: (explorerType as ExplorerConfig['type']) ?? 'etherscan',
-    url: explorerUrl ?? 'ERROR',
-    apiKey: explorerApiKey ?? 'ERROR',
-  }
+export async function getEvents(logger: CliLogger, args: EventArgs) {
+  const { address, topics: inputTopics, rpcUrl } = args
+
+  const explorer = getExplorerConfig(args)
   const provider = await getProvider(rpcUrl, explorer)
 
   const onlyHashedTopics = inputTopics.every((t) => Hash256.check(t))
@@ -37,11 +35,6 @@ export async function getEvents(
   if (!onlyHashedTopics) {
     logger.logLine(
       'Some of the topics you provided are not hashes, trying to match them to the ABI',
-    )
-    assert(explorerUrl !== undefined)
-    assert(
-      explorerType !== 'etherscan' || explorerApiKey !== undefined,
-      'When using etherscan you should provide the API key using --etherscan-key.',
     )
 
     const proxyDetector = new ProxyDetector()
@@ -110,7 +103,7 @@ async function getTimestampFromBlock(
 ): Promise<UnixTime> {
   const result = await provider.getBlock(blockNumber)
   assert(result !== undefined)
-  return new UnixTime(result.timestamp)
+  return UnixTime(result.timestamp)
 }
 
 async function getTransactionSender(
@@ -123,7 +116,7 @@ async function getTransactionSender(
 }
 
 function formatTimestamp(timestamp: UnixTime): string {
-  const date = timestamp.toDate()
+  const date = UnixTime.toDate(timestamp)
   const day = String(date.getDate()).padStart(2, '0')
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const year = date.getFullYear()

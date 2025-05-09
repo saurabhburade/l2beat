@@ -1,24 +1,10 @@
-import {
-  type Layer2,
-  type Layer3,
-  badges,
-  isUnderReview,
-  layer2s,
-  layer3s,
-} from '@l2beat/config'
-import { type RosetteValue } from '~/components/rosette/types'
+import type { Badge } from '@l2beat/config'
+import { getL2Risks } from '~/app/(side-nav)/scaling/_utils/get-l2-risks'
+import type { RosetteValue } from '~/components/rosette/types'
+import { ps } from '~/server/projects'
 import { getUnderReviewStatus } from '~/utils/project/under-review'
-import {
-  type ProjectChanges,
-  getProjectsChangeReport,
-} from '../../projects-change-report/get-projects-change-report'
-import { getStage } from '../get-common-scaling-entry'
-import {
-  type LatestTvl,
-  get7dTokenBreakdown,
-} from '../tvl/utils/get-7d-token-breakdown'
-import { getHostChain } from '../utils/get-host-chain'
-import { getRisks } from './get-scaling-summary-entries'
+import { getProjectsChangeReport } from '../../projects-change-report/get-projects-change-report'
+import { get7dTvsBreakdown } from '../tvs/get-7d-tvs-breakdown'
 
 export interface ScalingApiEntry {
   id: string
@@ -33,10 +19,10 @@ export interface ScalingApiEntry {
   isArchived: boolean
   isUpcoming: boolean
   isUnderReview: boolean
-  badges: { category: string; name: string }[]
+  badges: Badge[]
   stage: string
   risks: RosetteValue[]
-  tvl: {
+  tvs: {
     breakdown: {
       total: number
       ether: number
@@ -49,64 +35,57 @@ export interface ScalingApiEntry {
 }
 
 export async function getScalingApiEntries(): Promise<ScalingApiEntry[]> {
-  const projects = [...layer2s, ...layer3s].filter(
-    (project) => !project.isUpcoming && !project.isArchived,
-  )
-  const [projectsChangeReport, tvl] = await Promise.all([
+  const [projectsChangeReport, tvs, projects] = await Promise.all([
     getProjectsChangeReport(),
-    get7dTokenBreakdown({ type: 'layer2' }),
+    get7dTvsBreakdown({ type: 'layer2' }),
+    ps.getProjects({
+      select: ['display', 'statuses', 'scalingInfo', 'scalingRisks', 'tvsInfo'],
+      whereNot: ['archivedAt', 'isUpcoming'],
+    }),
   ])
 
   return projects
     .map((project) => {
-      const latestTvl = tvl.projects[project.id.toString()]
-      return getScalingApiEntry(
-        project,
-        projectsChangeReport.getChanges(project.id),
-        latestTvl,
-      )
-    })
-    .sort((a, b) => b.tvl.breakdown.total - a.tvl.breakdown.total)
-}
+      const latestTvs = tvs.projects[project.id.toString()]
+      const changes = projectsChangeReport.getChanges(project.id)
 
-function getScalingApiEntry(
-  project: Layer2 | Layer3,
-  changes: ProjectChanges,
-  latestTvl: LatestTvl['projects'][string] | undefined,
-): ScalingApiEntry {
-  return {
-    id: project.id.toString(),
-    name: project.display.name,
-    shortName: project.display.shortName,
-    slug: project.display.slug,
-    type: project.type,
-    hostChain: project.type === 'layer3' ? getHostChain(project) : undefined,
-    category: project.display.category,
-    provider: project.display.provider,
-    purposes: project.display.purposes,
-    isArchived: false,
-    isUpcoming: false,
-    isUnderReview: !!getUnderReviewStatus({
-      isUnderReview: isUnderReview(project),
-      implementationChanged: changes.implementationChanged,
-      highSeverityFieldChanged: changes.highSeverityFieldChanged,
-    }),
-    badges:
-      project.badges?.map((x) => ({
-        category: badges[x].type,
-        name: badges[x].display.name,
-      })) ?? [],
-    stage: getStage(project.stage),
-    risks: getRisks(project).risks,
-    tvl: {
-      breakdown: latestTvl?.breakdown ?? {
-        total: 0,
-        associated: 0,
-        ether: 0,
-        stablecoin: 0,
-      },
-      change7d: latestTvl?.change ?? 0,
-      associatedTokens: project.config.associatedTokens ?? [],
-    },
-  }
+      return {
+        id: project.id.toString(),
+        name: project.name,
+        shortName: project.shortName,
+        slug: project.slug,
+        type: project.scalingInfo.layer,
+        hostChain: project.scalingInfo.hostChain.name,
+        category: project.scalingInfo.type,
+        provider: project.scalingInfo.stack,
+        purposes: project.scalingInfo.purposes,
+        isArchived: false,
+        isUpcoming: false,
+        isUnderReview: !!getUnderReviewStatus({
+          isUnderReview: project.statuses.isUnderReview,
+          impactfulChange: !!changes?.impactfulChange,
+        }),
+        badges: project.display.badges,
+        stage: project.scalingInfo.stage,
+        risks: getL2Risks(
+          project.scalingRisks.stacked ?? project.scalingRisks.self,
+        ),
+        tvs: {
+          breakdown: latestTvs?.breakdown
+            ? {
+                ...latestTvs.breakdown,
+                associated: latestTvs.associated.total,
+              }
+            : {
+                total: 0,
+                associated: 0,
+                ether: 0,
+                stablecoin: 0,
+              },
+          change7d: latestTvs?.change.total ?? 0,
+          associatedTokens: project.tvsInfo.associatedTokens,
+        },
+      }
+    })
+    .sort((a, b) => b.tvs.breakdown.total - a.tvs.breakdown.total)
 }

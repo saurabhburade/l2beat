@@ -1,18 +1,26 @@
 import { createColumnHelper } from '@tanstack/react-table'
-import { RiskCell } from '~/components/table/cells/risk-cell'
+import { TableValueCell } from '~/components/table/cells/table-value-cell'
 
 import { ProjectNameCell } from '~/components/table/cells/project-name-cell'
+import { TableLink } from '~/components/table/table-link'
 import { getDaCommonProjectColumns } from '~/components/table/utils/common-project-columns/da-common-project-columns'
-import { type DaRiskEntry } from '~/server/features/data-availability/risks/get-da-risk-entries'
+import type { DaRiskEntry } from '~/server/features/data-availability/risks/get-da-risk-entries'
 import { virtual, withSpanByBridges } from '../../../_utils/col-utils'
 
 const columnHelper = createColumnHelper<DaRiskEntry>()
 
-export const [indexColumn, logoColumn] = getDaCommonProjectColumns(columnHelper)
+export const [indexColumn, logoColumn] = getDaCommonProjectColumns(
+  columnHelper,
+  (row) => `${row.href}#da-layer`,
+)
 
 const daLayerColumn = columnHelper.accessor('name', {
   header: 'DA Layer',
-  cell: (ctx) => <ProjectNameCell project={ctx.row.original} />,
+  cell: (ctx) => (
+    <TableLink href={`${ctx.row.original.href}#da-layer`}>
+      <ProjectNameCell project={ctx.row.original} />
+    </TableLink>
+  ),
   meta: {
     tooltip:
       'The data availability layer where the data (transaction data or state diffs) is posted.',
@@ -28,7 +36,12 @@ const baseColumns = [
 const economicSecurityColumn = columnHelper.display({
   id: 'economic-security',
   header: 'Economic\nsecurity',
-  cell: (ctx) => <RiskCell risk={ctx.row.original.risks.economicSecurity} />,
+  cell: (ctx) => (
+    <TableValueCell
+      emptyMode="n/a"
+      value={ctx.row.original.risks.economicSecurity}
+    />
+  ),
   meta: {
     tooltip:
       'Shows if there are any onchain (staked assets) or offchain (reputation) guarantees that would prevent a committee from deceiving the DA bridge.',
@@ -38,7 +51,12 @@ const economicSecurityColumn = columnHelper.display({
 const fraudDetectionColumn = columnHelper.display({
   id: 'fraud-detection',
   header: 'Fraud\ndetection',
-  cell: (ctx) => <RiskCell risk={ctx.row.original.risks.fraudDetection} />,
+  cell: (ctx) => (
+    <TableValueCell
+      emptyMode="n/a"
+      value={ctx.row.original.risks.fraudDetection}
+    />
+  ),
   meta: {
     tooltip:
       'Shows if there are any mechanism for users to protect themselves against a malicious majority of committee members, such as validators, and recover from data withholding attack.',

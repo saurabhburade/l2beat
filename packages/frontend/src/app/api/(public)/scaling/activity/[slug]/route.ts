@@ -1,51 +1,57 @@
-import { layer2s, layer3s } from '@l2beat/config'
-import { ProjectId, UnixTime } from '@l2beat/shared-pure'
+import { UnixTime } from '@l2beat/shared-pure'
 import { unstable_cache as cache } from 'next/cache'
-import { type NextRequest, NextResponse } from 'next/server'
-import { getActivityChart } from '~/server/features/scaling/activity/get-activity-chart'
-import { type ActivityProjectFilter } from '~/server/features/scaling/activity/utils/project-filter-utils'
-import { ActivityTimeRange } from '~/server/features/scaling/activity/utils/range'
-
-const projectsIds = [...layer2s, ...layer3s]
-  .map((p) => ({
-    id: p.id,
-    slug: p.display.slug,
-  }))
-  .concat({
-    id: ProjectId.ETHEREUM,
-    slug: 'ethereum',
-  })
+import type { NextRequest } from 'next/server'
+import { NextResponse } from 'next/server'
+import {
+  ActivityChartParams,
+  getActivityChart,
+} from '~/server/features/scaling/activity/get-activity-chart'
+import { ps } from '~/server/projects'
 
 export async function GET(
   request: NextRequest,
   props: { params: Promise<{ slug: string }> },
 ) {
-  const params = await props.params
-  const searchParams = request.nextUrl.searchParams
-  const range = ActivityTimeRange.catch('30d').parse(searchParams.get('range'))
-  const response = await getCachedResponse(params.slug, range)
+  const { slug } = await props.params
+  const range = request.nextUrl.searchParams.get('range') as
+    | ActivityChartParams['range']
+    | null
 
+  const response = await getCachedResponse(slug, range)
   return NextResponse.json(response)
 }
 
 const getCachedResponse = cache(
-  async (slug: string, range: ActivityTimeRange) => {
-    const project = projectsIds.find((p) => p.slug === slug)
+  async (slug: string, range: ActivityChartParams['range'] | null) => {
+    const isEthereum = slug === 'ethereum'
+    const project = await ps.getProject({
+      slug,
+      where: ['activityConfig', 'isScaling'],
+    })
 
-    if (!project) {
+    if (!project && !isEthereum) {
       return {
         success: false,
         error: 'Project not found.',
       } as const
     }
 
-    const isEthereum = project.slug === 'ethereum'
+    const params: ActivityChartParams = {
+      filter: isEthereum
+        ? { type: 'all' }
+        : { type: 'projects', projectIds: project ? [project.id] : [] },
+      range: range ?? '30d',
+      previewRecategorisation: false,
+    }
+    const parsedParams = ActivityChartParams.safeParse(params)
+    if (parsedParams.error) {
+      return {
+        success: false,
+        errors: parsedParams.error.errors,
+      } as const
+    }
 
-    const filter: ActivityProjectFilter = isEthereum
-      ? { type: 'all' }
-      : { type: 'projects', projectIds: [project.id] }
-
-    const { data } = await getActivityChart(filter, range)
+    const { data } = await getActivityChart(params)
 
     const oldestProjectData = data.at(0)
     const latestProjectData = data.at(-1)
@@ -85,7 +91,7 @@ const getCachedResponse = cache(
   },
   ['scaling-activity-project-route'],
   {
-    tags: ['activity'],
-    revalidate: UnixTime.DAY,
+    tags: ['hourly-data'],
+    revalidate: UnixTime.HOUR,
   },
 )

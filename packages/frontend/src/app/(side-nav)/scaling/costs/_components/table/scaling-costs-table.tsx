@@ -1,22 +1,21 @@
 'use client'
 
 import { getCoreRowModel, getSortedRowModel } from '@tanstack/react-table'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { BasicTable } from '~/components/table/basic-table'
 import { RollupsTable } from '~/components/table/rollups-table'
 import { useTableSorting } from '~/components/table/sorting/table-sorting-context'
 import { useTable } from '~/hooks/use-table'
-import { type CostsTableData } from '~/server/features/scaling/costs/get-costs-table-data'
-import { type ScalingCostsEntry } from '~/server/features/scaling/costs/get-scaling-costs-entries'
-import { type CostsUnit } from '~/server/features/scaling/costs/types'
+import type { CostsTableData } from '~/server/features/scaling/costs/get-costs-table-data'
+import type { ScalingCostsEntry } from '~/server/features/scaling/costs/get-scaling-costs-entries'
+import type { CostsUnit } from '~/server/features/scaling/costs/types'
 import { api } from '~/trpc/react'
-import {
-  type CostsMetric,
-  useCostsMetricContext,
-} from '../costs-metric-context'
+import type { CostsMetric } from '../costs-metric-context'
+import { useCostsMetricContext } from '../costs-metric-context'
 import { useCostsTimeRangeContext } from '../costs-time-range-context'
 import { useCostsUnitContext } from '../costs-unit-context'
-import { type ScalingCostsTableEntry, scalingCostsColumns } from './columns'
+import type { ScalingCostsTableEntry } from './columns'
+import { getScalingCostsColumns } from './columns'
 
 interface Props {
   entries: ScalingCostsEntry[]
@@ -38,7 +37,7 @@ export function ScalingCostsTable({ entries, rollups }: Props) {
 
   const table = useTable({
     data: tableEntries,
-    columns: scalingCostsColumns,
+    columns: getScalingCostsColumns(metric),
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     manualFiltering: true,
@@ -52,6 +51,17 @@ export function ScalingCostsTable({ entries, rollups }: Props) {
       },
     },
   })
+
+  useEffect(() => {
+    if (table.getState().sorting[0]?.id === 'total-cost') {
+      setSorting([
+        {
+          id: 'total-cost',
+          desc: metric === 'total',
+        },
+      ])
+    }
+  }, [metric, setSorting, table])
 
   return rollups ? <RollupsTable table={table} /> : <BasicTable table={table} />
 }
@@ -86,6 +96,7 @@ function mapToTableEntry(
     data: {
       ...projectData,
       type: 'available',
+      isSynced: projectData.isSynced,
       total: projectData[unit].total,
       calldata: projectData[unit].calldata,
       blobs: projectData[unit].blobs,
@@ -100,29 +111,39 @@ function calculateDataByType(
   metric: CostsMetric,
 ): ScalingCostsTableEntry[] {
   if (metric === 'total') {
-    return entries
+    return entries.sort(
+      (a, b) =>
+        (b.data?.type === 'available' ? b.data.total : -Infinity) -
+        (a.data?.type === 'available' ? a.data.total : -Infinity),
+    )
   }
 
-  return entries.map((e) => {
-    if (e.data?.type === 'not-available') return e
-    if (!e.data?.txCount)
+  return entries
+    .map((e) => {
+      if (e.data?.type === 'not-available') return e
+      if (!e.data?.uopsCount)
+        return {
+          ...e,
+          data: {
+            type: 'not-available',
+            reason: 'no-data',
+          },
+        } as ScalingCostsTableEntry
       return {
         ...e,
         data: {
-          type: 'not-available',
-          reason: 'no-data',
+          ...e.data,
+          total: e.data.total / e.data.uopsCount,
+          blobs: e.data.blobs ? e.data.blobs / e.data.uopsCount : undefined,
+          compute: e.data.compute / e.data.uopsCount,
+          calldata: e.data.calldata / e.data.uopsCount,
+          overhead: e.data.overhead / e.data.uopsCount,
         },
-      }
-    return {
-      ...e,
-      data: {
-        ...e.data,
-        total: e.data.total / e.data.txCount,
-        blobs: e.data.blobs ? e.data.blobs / e.data.txCount : undefined,
-        compute: e.data.compute / e.data.txCount,
-        calldata: e.data.calldata / e.data.txCount,
-        overhead: e.data.overhead / e.data.txCount,
-      },
-    }
-  })
+      } as ScalingCostsTableEntry
+    })
+    .sort(
+      (a, b) =>
+        (a.data.type === 'available' ? a.data.total : Infinity) -
+        (b.data.type === 'available' ? b.data.total : Infinity),
+    )
 }

@@ -1,14 +1,15 @@
 import { assert } from '@l2beat/shared-pure'
-import {
-  type Column,
-  type Header,
-  type Row,
-  type Table as TanstackTable,
-  flexRender,
+import type {
+  Column,
+  Header,
+  Row,
+  Table as TanstackTable,
 } from '@tanstack/react-table'
-import { range } from 'lodash'
+import { flexRender } from '@tanstack/react-table'
+import range from 'lodash/range'
 import React from 'react'
-import { type CommonProjectEntry } from '~/server/features/utils/get-common-project-entry'
+import { useHighlightedTableRowContext } from '~/components/table/highlighted-table-row-context'
+import type { CommonProjectEntry } from '~/server/features/utils/get-common-project-entry'
 import { cn } from '~/utils/cn'
 import { SortingArrows } from './sorting/sorting-arrows'
 import {
@@ -23,9 +24,9 @@ import {
 import { TableEmptyState } from './table-empty-state'
 import { getCommonPinningStyles } from './utils/common-pinning-styles'
 import {
+  getRowClassNames,
+  getRowClassNamesWithoutOpacity,
   getRowType,
-  getRowTypeClassNames,
-  getRowTypeClassNamesWithoutOpacity,
 } from './utils/row-type'
 
 export interface BasicTableProps<T extends CommonProjectEntry> {
@@ -57,8 +58,10 @@ export function BasicTable<T extends CommonProjectEntry>(
   assert(maxDepth <= 1, 'Only 1 level of headers is supported')
 
   const groupedHeader = maxDepth === 1 ? headerGroups[0] : undefined
-  const actualHeader = maxDepth === 1 ? headerGroups[1]! : headerGroups[0]!
+  const actualHeader = maxDepth === 1 ? headerGroups[1] : headerGroups[0]
+  assert(actualHeader, 'Actual header is required')
 
+  const rows = getTableRows(props.table)
   return (
     <Table>
       {groupedHeader && <ColGroup headers={groupedHeader.headers} />}
@@ -80,7 +83,7 @@ export function BasicTable<T extends CommonProjectEntry>(
                           !!header.column.columnDef.header &&
                           'rounded-t-lg px-6 pt-4',
                         header.column.getIsPinned() &&
-                          getRowTypeClassNamesWithoutOpacity(null),
+                          getRowClassNamesWithoutOpacity(null),
                       )}
                       style={getCommonPinningStyles(header.column)}
                     >
@@ -118,7 +121,7 @@ export function BasicTable<T extends CommonProjectEntry>(
                         'rounded-tr-lg',
                     ],
                     header.column.getIsPinned() &&
-                      getRowTypeClassNamesWithoutOpacity(null),
+                      getRowClassNamesWithoutOpacity(null),
                     header.column.columnDef.meta?.headClassName,
                   )}
                   align={header.column.columnDef.meta?.align}
@@ -155,12 +158,16 @@ export function BasicTable<T extends CommonProjectEntry>(
         </TableHeaderRow>
       </TableHeader>
       <TableBody>
-        {props.children ??
-          props.table
-            .getRowModel()
-            .rows.map((row) => (
+        {props.children ?? (
+          <>
+            {rows.ethereumEntry && (
+              <BasicTableRow row={rows.ethereumEntry} {...props} />
+            )}
+            {rows.rest.map((row) => (
               <BasicTableRow row={row} key={row.id} {...props} />
             ))}
+          </>
+        )}
         {groupedHeader && <RowFiller headers={groupedHeader.headers} />}
       </TableBody>
     </Table>
@@ -173,12 +180,14 @@ export function BasicTableRow<T extends CommonProjectEntry>({
   ...props
 }: BasicTableProps<T> & { row: Row<T>; className?: string }) {
   const rowType = getRowType(row.original, props.rowColoringMode)
+  const { highlightedSlug } = useHighlightedTableRowContext()
 
   return (
     <>
       <TableRow
+        slug={row.original.slug}
         className={cn(
-          getRowTypeClassNames(rowType),
+          getRowClassNames(rowType),
           row.getIsExpanded() &&
             props.renderSubComponent?.({ row }) &&
             '!border-none',
@@ -188,7 +197,6 @@ export function BasicTableRow<T extends CommonProjectEntry>({
         {row.getVisibleCells().map((cell) => {
           const { meta } = cell.column.columnDef
           const groupParams = getBasicTableGroupParams(cell.column)
-          const href = getBasicTableHref(row.original.href, meta?.hash)
 
           if (meta?.hideIfNull && cell.renderValue() === null) {
             return null
@@ -201,11 +209,8 @@ export function BasicTableRow<T extends CommonProjectEntry>({
           return (
             <React.Fragment key={`${row.id}-${cell.id}`}>
               <TableCell
-                href={href}
                 align={meta?.align}
                 className={cn(
-                  cell.column.getIsPinned() &&
-                    getRowTypeClassNamesWithoutOpacity(rowType),
                   groupParams?.isFirstInGroup && 'pl-6',
                   groupParams?.isLastInGroup && '!pr-6',
                   cell.column.getCanSort() && meta?.align === undefined
@@ -213,6 +218,11 @@ export function BasicTableRow<T extends CommonProjectEntry>({
                       ? 'pl-10'
                       : 'pl-4'
                     : undefined,
+                  cell.column.getIsPinned() &&
+                    getRowClassNamesWithoutOpacity(rowType),
+                  cell.column.getIsPinned() &&
+                    highlightedSlug === row.original.slug &&
+                    'animate-row-highlight-no-opacity',
                   meta?.cellClassName,
                 )}
                 style={getCommonPinningStyles(cell.column)}
@@ -220,9 +230,7 @@ export function BasicTableRow<T extends CommonProjectEntry>({
               >
                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
               </TableCell>
-              {groupParams?.isLastInGroup && (
-                <BasicTableColumnFiller as="td" href={href} />
-              )}
+              {groupParams?.isLastInGroup && <BasicTableColumnFiller as="td" />}
             </React.Fragment>
           )
         })}
@@ -248,7 +256,7 @@ function ColGroup<T, V>(props: { headers: Header<T, V>[] }) {
     return (
       <React.Fragment key={header.id}>
         <colgroup
-          className={cn(!header.isPlaceholder && 'bg-surface-table-group')}
+          className={cn(!header.isPlaceholder && 'bg-header-secondary')}
         >
           {range(header.colSpan).map((i) => (
             <col key={`${header.id}-${i}`} />
@@ -270,8 +278,7 @@ function RowFiller<T, V>(props: { headers: Header<T, V>[] }) {
           className={cn(
             'h-4',
             !header.isPlaceholder && 'rounded-b-lg',
-            header.column.getIsPinned() &&
-              getRowTypeClassNamesWithoutOpacity(null),
+            header.column.getIsPinned() && getRowClassNamesWithoutOpacity(null),
           )}
           style={getCommonPinningStyles(header.column)}
         />
@@ -280,26 +287,12 @@ function RowFiller<T, V>(props: { headers: Header<T, V>[] }) {
   )
 }
 
-type ColumnFillerProps =
-  | {
-      as: 'th' | 'colgroup'
-    }
-  | {
-      as: 'td'
-      href: string | undefined
-    }
-
-function BasicTableColumnFiller(props: ColumnFillerProps) {
-  if (props.as === 'td') {
-    return (
-      <td>
-        <a href={props.href} className="flex h-full w-4 items-center" />
-      </td>
-    )
-  }
-
-  const Comp = props.as
-  return <Comp className="w-4" />
+function BasicTableColumnFiller({
+  as: Comp,
+}: {
+  as: 'th' | 'colgroup' | 'td'
+}) {
+  return <Comp className="h-full w-4 min-w-4" />
 }
 
 export function getBasicTableGroupParams<T>(column: Column<T>) {
@@ -318,13 +311,19 @@ export function getBasicTableGroupParams<T>(column: Column<T>) {
   }
 }
 
-export function getBasicTableHref(
-  href: string | undefined,
-  hash: string | undefined,
-) {
-  if (!hash) {
-    return href
+function getTableRows<T extends CommonProjectEntry>(table: TanstackTable<T>) {
+  const rows = table.getRowModel().rows
+
+  let ethereumEntry: Row<T> | undefined
+  const rest: Row<T>[] = []
+
+  for (const row of rows) {
+    if (row.original.slug === 'ethereum') {
+      ethereumEntry = row
+      continue
+    }
+    rest.push(row)
   }
 
-  return `${href}#${hash}`
+  return { ethereumEntry, rest }
 }

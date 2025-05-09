@@ -1,29 +1,42 @@
-import { ProjectService, type ProjectWith } from '@l2beat/config'
-import { type SearchBarProject } from './search-bar-entry'
+import type { Project } from '@l2beat/config'
+import { getProjectIcon } from '~/server/features/utils/get-project-icon'
+import { ps } from '~/server/projects'
+import type { SearchBarProject } from './search-bar-entry'
 
 export async function getSearchBarProjects(): Promise<SearchBarProject[]> {
-  const projects = await ProjectService.STATIC.getProjects({
+  const projects = await ps.getProjects({
     optional: [
       'scalingInfo',
-      'daBridges',
+      'daLayer',
+      'daBridge',
       'isZkCatalog',
       'isScaling',
-      'isBridge',
       'isDaLayer',
+      'isBridge',
       'isUpcoming',
     ],
   })
 
   return projects.flatMap((p): SearchBarProject[] => {
     const results: SearchBarProject[] = []
+    if (
+      !p.isZkCatalog &&
+      !p.isScaling &&
+      !p.isBridge &&
+      !p.daLayer &&
+      !p.daBridge
+    ) {
+      return []
+    }
+
     const common = {
       type: 'project',
       id: p.id,
       name: p.name,
+      iconUrl: getProjectIcon(p.slug),
       kind: getKind(p),
       isUpcoming: !!p.isUpcoming,
-      iconUrl: `/icons/${p.slug}.png`,
-      createdAt: p.addedAt.toNumber(),
+      addedAt: p.addedAt,
       tags: [p.slug],
     } satisfies Partial<SearchBarProject>
 
@@ -52,16 +65,31 @@ export async function getSearchBarProjects(): Promise<SearchBarProject[]> {
       })
     }
 
-    if (p.daBridges) {
-      for (const b of p.daBridges) {
+    if (p.daLayer) {
+      if (p.daLayer.usedWithoutBridgeIn.length > 0) {
         results.push({
           ...common,
-          id: `${p.id}-${b.id}`,
-          name: b.type === 'DAC' ? p.name : `${p.name} with ${b.display.name}`,
-          href: `/data-availability/projects/${p.slug}/${b.display.slug}`,
+          id: `${p.id}-no-bridge`,
+          name: `${p.name} without a DA bridge`,
+          href: `/data-availability/projects/${p.slug}/no-bridge`,
           category: 'da',
-          tags: [p.slug, b.display.slug],
-          createdAt: b.createdAt.toNumber(),
+          tags: [p.slug, 'no-bridge'],
+          addedAt: p.addedAt,
+        })
+      }
+    }
+
+    if (p.daBridge) {
+      const layer = projects.find((x) => x.id === p.daBridge?.daLayer)
+      if (layer) {
+        results.push({
+          ...common,
+          id: `${layer.id}-${p.id}`,
+          name: `${layer.name} with ${p.daBridge.name}`,
+          href: `/data-availability/projects/${layer.slug}/${p.slug}`,
+          category: 'da',
+          tags: [layer.slug, p.slug],
+          addedAt: p.addedAt,
         })
       }
     }
@@ -71,10 +99,7 @@ export async function getSearchBarProjects(): Promise<SearchBarProject[]> {
 }
 
 function getKind(
-  p: ProjectWith<
-    never,
-    'scalingInfo' | 'isBridge' | 'isZkCatalog' | 'isDaLayer'
-  >,
+  p: Project<never, 'scalingInfo' | 'isBridge' | 'isZkCatalog' | 'isDaLayer'>,
 ): SearchBarProject['kind'] {
   if (p.scalingInfo?.layer === 'layer2') return 'layer2'
   if (p.scalingInfo?.layer === 'layer3') return 'layer3'

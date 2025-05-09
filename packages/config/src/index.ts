@@ -1,13 +1,7 @@
-export * from './backend'
-export * from './chains'
-export * from './common'
-export * from './onChainProjects'
-export * from './projects'
-export * from './tokens'
-export * from './tvl'
-export * from './utils/chains'
-export * from './utils/commonContracts'
-export * from './utils/getDaProjectKey'
-export * from './utils/approximateCompromiseProbability'
-export * from './verification'
-export { ProjectDiscovery } from './discovery/ProjectDiscovery'
+// +--------------------------+
+// | DO NOT ADD MORE EXPORTS! |
+// +--------------------------+
+export { HOMEPAGE_MILESTONES } from './global/milestones'
+export { PROJECT_COUNTDOWNS } from './global/countdowns'
+export { ProjectService, type Project } from './ProjectService'
+export type * from './types'

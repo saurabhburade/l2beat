@@ -1,18 +1,20 @@
-import { type Layer2, type Layer3 } from '@l2beat/config'
+import type { Project } from '@l2beat/config'
 import { notUndefined } from '@l2beat/shared-pure'
-import { getTechnologySectionProps } from './get-technology-section-props'
+import { getTechnologyChoicesSectionProps } from './get-technology-choices-section-props'
 import { makeTechnologyChoice } from './make-technology-section'
 
-export function getOperatorSection(project: Layer2 | Layer3) {
+export function getOperatorSection(
+  project: Project<'statuses' | 'scalingTechnology'>,
+) {
   const items = [
-    project.technology.operator &&
-      makeTechnologyChoice('operator', project.technology.operator),
-    project.technology.forceTransactions &&
+    project.scalingTechnology.operator &&
+      makeTechnologyChoice('operator', project.scalingTechnology.operator),
+    project.scalingTechnology.forceTransactions &&
       makeTechnologyChoice(
         'force-transactions',
-        project.technology.forceTransactions,
+        project.scalingTechnology.forceTransactions,
       ),
   ].filter(notUndefined)
 
-  return getTechnologySectionProps(project, items)
+  return getTechnologyChoicesSectionProps(project, items)
 }

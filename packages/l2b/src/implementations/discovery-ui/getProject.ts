@@ -1,10 +1,16 @@
-import { ConfigReader, getChainShortName } from '@l2beat/discovery'
 import {
-  ContractParameters,
-  DiscoveryOutput,
-  get$Implementations,
-} from '@l2beat/discovery-types'
-import { DiscoveryContract } from '@l2beat/discovery/dist/discovery/config/RawDiscoveryConfig'
+  type ConfigReader,
+  type ConfigRegistry,
+  type DiscoveryOutput,
+  type EntryParameters,
+  type TemplateService,
+  getChainShortName,
+  getShapeFromOutputEntry,
+  makeEntryColorConfig,
+  makeEntryStructureConfig,
+} from '@l2beat/discovery'
+import { type ContractConfig, get$Implementations } from '@l2beat/discovery'
+import type { ColorContract } from '@l2beat/discovery/dist/discovery/config/ColorConfig'
 import { EthereumAddress } from '@l2beat/shared-pure'
 import { utils } from 'ethers'
 import { getContractName } from './getContractName'
@@ -12,10 +18,10 @@ import { getContractType } from './getContractType'
 import { getMeta } from './getMeta'
 import { parseFieldValue } from './parseFieldValue'
 import { toAddress } from './toAddress'
-import {
-  AddressFieldValue,
+import type {
   ApiAbiEntry,
   ApiAddressEntry,
+  ApiAddressReference,
   ApiAddressType,
   ApiProjectChain,
   ApiProjectContract,
@@ -24,64 +30,145 @@ import {
   FieldValue,
 } from './types'
 
-export function getProject(configReader: ConfigReader, project: string) {
-  const chains = configReader.readAllChainsForProject(project)
-  const data = chains.map((chain) => ({
-    chain,
-    config: configReader.readConfig(project, chain, { skipTemplates: false }),
-    discovery: configReader.readDiscovery(project, chain),
-  }))
+interface ProjectData {
+  chain: string
+  config: ConfigRegistry
+  discovery: DiscoveryOutput
+}
 
-  const response: ApiProjectResponse = { chains: [] }
+function readProject(
+  chain: string,
+  project: string,
+  configReader: ConfigReader,
+): ProjectData[] {
+  const discovery = configReader.readDiscovery(project, chain)
+  const sharedModules = discovery.sharedModules ?? []
+
+  return [
+    {
+      chain,
+      config: configReader.readConfig(project, chain),
+      discovery,
+    },
+    ...sharedModules.flatMap((sharedModule) =>
+      readProject(chain, sharedModule, configReader),
+    ),
+  ]
+}
+
+export function getProject(
+  configReader: ConfigReader,
+  templateService: TemplateService,
+  project: string,
+): ApiProjectResponse {
+  const chains = configReader.readAllChainsForProject(project)
+  const data = chains.flatMap((chain) =>
+    readProject(chain, project, configReader),
+  )
+
+  const response: ApiProjectResponse = { entries: [] }
+  const meta = getMeta(data.map((x) => x.discovery))
   for (const { chain, config, discovery } of data) {
-    const meta = getMeta(discovery)
-    const contracts = discovery.contracts
-      .map((contract) => {
-        const overrides =
-          config.overrides.get(contract.address) ??
-          config.overrides.get(config.names[contract.address] ?? '')
-        const template = contract.template
-          ? configReader.templateService.loadContractTemplate(contract.template)
-          : undefined
+    const contracts = discovery.entries
+      .filter((e) => e.type === 'Contract')
+      .map((entry) => {
+        const contractConfig = makeEntryStructureConfig(
+          config.structure,
+          entry.address,
+        )
+
+        if (entry.template !== undefined) {
+          const templateValues = templateService.loadContractTemplate(
+            entry.template,
+          )
+          contractConfig.pushValues(templateValues)
+        }
+
+        const contractColorConfig = makeEntryColorConfig(
+          config.color,
+          entry.address,
+          templateService.loadContractTemplateColor(entry.template),
+        )
+
+        const template = getTemplate(templateService, entry)
+
         return contractFromDiscovery(
           chain,
           meta,
-          contract,
-          overrides,
-          template,
+          entry,
+          contractConfig,
+          contractColorConfig,
           discovery.abis,
+          template,
         )
       })
       .sort(orderAddressEntries)
-    const initialAddresses = config.initialAddresses.map(
+    const initialAddresses = config.structure.initialAddresses.map(
       (address) => `${getChainShortName(chain)}:${address}`,
     )
 
     const chainInfo = {
-      name: chain,
+      project: config.name,
+      chain: chain,
       initialContracts: contracts.filter((x) =>
         initialAddresses.includes(x.address),
       ),
       discoveredContracts: contracts.filter(
         (x) => !initialAddresses.includes(x.address),
       ),
-      eoas: discovery.eoas
+      eoas: discovery.entries
+        .filter((e) => e.type === 'EOA')
         .filter((x) => x.address !== EthereumAddress.ZERO)
-        .map(
-          (x): ApiAddressEntry => ({
+        .map((x): ApiAddressEntry => {
+          const roles = getRoles(x)
+          return {
             name: x.name || undefined,
-            type: 'EOA',
+            type: roles.length > 0 ? 'EOAPermissioned' : 'EOA',
+            roles: roles,
             description: x.description,
             referencedBy: [],
             address: toAddress(chain, x.address),
-          }),
-        )
+          }
+        })
         .sort(orderAddressEntries),
-    }
-    response.chains.push(chainInfo)
+      blockNumber: discovery.blockNumber,
+    } satisfies ApiProjectChain
+    response.entries.push(chainInfo)
   }
-  populateReferencedBy(response.chains)
+  populateReferencedBy(response.entries)
   return response
+}
+
+function getRoles(entry: EntryParameters): string[] {
+  const roles = entry.receivedPermissions?.map((p) => p.permission)
+  const notRoles = ['member', 'act', 'interact']
+
+  return [...new Set(roles ?? [])].filter((role) => !notRoles.includes(role))
+}
+
+function getTemplate(
+  templateService: TemplateService,
+  contract: EntryParameters,
+): ApiProjectContract['template'] {
+  if (!contract.template) {
+    return
+  }
+
+  const shape = getShapeFromOutputEntry(templateService, contract)
+
+  if (!shape) {
+    return {
+      id: contract.template,
+    }
+  }
+
+  return {
+    id: contract.template,
+    shape: {
+      name: shape.name,
+      hasCriteria: shape.criteria !== undefined,
+    },
+  }
 }
 
 function orderAddressEntries(a: ApiAddressEntry, b: ApiAddressEntry) {
@@ -100,24 +187,21 @@ function orderAddressEntries(a: ApiAddressEntry, b: ApiAddressEntry) {
 function contractFromDiscovery(
   chain: string,
   meta: Record<string, { name?: string; type: ApiAddressType }>,
-  contract: ContractParameters,
-  overrides: DiscoveryContract | undefined,
-  template: DiscoveryContract | undefined,
+  contract: EntryParameters,
+  contractConfig: ContractConfig,
+  contractColorConfig: ColorContract,
   abis: DiscoveryOutput['abis'],
+  template: ApiProjectContract['template'],
 ): ApiProjectContract {
   const getFieldInfo = (name: string): Omit<Field, 'name' | 'value'> => {
-    const oField = overrides?.fields?.[name]
-    const tField = template?.fields?.[name]
+    const field = contractConfig.fields[name]
+    const fieldColor = contractColorConfig.fields[name]
     return {
-      description: oField?.description ?? tField?.description,
-      handler: oField?.handler ?? tField?.handler,
-      ignoreInWatchMode:
-        overrides?.ignoreInWatchMode?.includes(name) ||
-        template?.ignoreInWatchMode?.includes(name),
-      ignoreRelatives:
-        overrides?.ignoreRelatives?.includes(name) ||
-        template?.ignoreRelatives?.includes(name),
-      severity: oField?.severity ?? tField?.severity,
+      description: fieldColor?.description,
+      handler: field?.handler,
+      ignoreInWatchMode: contractConfig.ignoreInWatchMode?.includes(name),
+      ignoreRelatives: contractConfig.ignoreRelatives?.includes(name),
+      severity: fieldColor?.severity,
     }
   }
 
@@ -125,7 +209,7 @@ function contractFromDiscovery(
     .map(
       ([name, value]): Field => ({
         name,
-        value: fixAddresses(parseFieldValue(value, meta), chain),
+        value: parseFieldValue(value, meta, chain),
         ...getFieldInfo(name),
       }),
     )
@@ -144,7 +228,9 @@ function contractFromDiscovery(
   return {
     name: getContractName(contract),
     type: getContractType(contract),
-    template: contract.template,
+    roles: getRoles(contract),
+    template: template,
+    proxyType: contract.proxyType,
     description: contract.description,
     referencedBy: [],
     address: toAddress(chain, contract.address),
@@ -153,6 +239,8 @@ function contractFromDiscovery(
       address: toAddress(chain, address),
       entries: (abis[address] ?? []).map((e) => abiEntry(e)),
     })),
+    sources: [],
+    implementationNames: contract.implementationNames,
   }
 }
 
@@ -173,56 +261,41 @@ function abiEntry(entry: string): ApiAbiEntry {
   }
 }
 
-function fixAddresses(value: FieldValue, chain: string): FieldValue {
-  if (value.type === 'object') {
-    return {
-      type: 'object',
-      value: Object.fromEntries(
-        Object.entries(value.value).map(([key, value]) => [
-          key,
-          fixAddresses(value, chain),
-        ]),
-      ),
-    }
-  } else if (value.type === 'array') {
-    return {
-      type: 'array',
-      values: value.values.map((value) => fixAddresses(value, chain)),
-    }
-  } else if (value.type === 'address') {
-    return {
-      ...value,
-      address: toAddress(chain, value.address),
-    }
-  }
-  return value
-}
-
 function populateReferencedBy(chains: ApiProjectChain[]) {
-  const referencedBy = new Map<string, AddressFieldValue[]>()
+  const referencedBy = new Map<string, ApiAddressReference[]>()
   for (const chain of chains) {
     for (const contract of [
       ...chain.initialContracts,
       ...chain.discoveredContracts,
     ]) {
-      const field: AddressFieldValue = {
-        type: 'address',
-        name: contract.name,
-        address: contract.address,
-        addressType: contract.type,
-      }
-      const relatives = getAddresses(
-        contract.fields.map((x) => x.value),
-      ).filter((x, i, a) => a.indexOf(x) === i)
-      for (const relative of relatives) {
-        if (relative === contract.address) {
-          continue
-        }
-        const refs = referencedBy.get(relative)
-        if (refs) {
-          refs.push(field)
-        } else {
-          referencedBy.set(relative, [field])
+      for (const field of contract.fields) {
+        const addresses = getAddresses([field.value])
+        for (const address of addresses) {
+          if (address === contract.address) {
+            continue
+          }
+
+          const ref: ApiAddressReference = {
+            type: 'address',
+            name: contract.name,
+            address: contract.address,
+            addressType: contract.type,
+            fieldNames: [field.name],
+          }
+
+          const existingRef = referencedBy
+            .get(address)
+            ?.find((r) => r.address === contract.address)
+
+          if (existingRef) {
+            if (!existingRef.fieldNames.includes(field.name)) {
+              existingRef.fieldNames.push(field.name)
+            }
+          } else {
+            const refs = referencedBy.get(address) || []
+            refs.push(ref)
+            referencedBy.set(address, refs)
+          }
         }
       }
     }
@@ -247,7 +320,7 @@ function getAddresses(values: FieldValue[]) {
     } else if (value.type === 'array') {
       addresses.push(...getAddresses(value.values))
     } else if (value.type === 'object') {
-      addresses.push(...getAddresses(Object.values(value.value)))
+      addresses.push(...getAddresses(value.values.map(([_, value]) => value)))
     }
   }
   return addresses

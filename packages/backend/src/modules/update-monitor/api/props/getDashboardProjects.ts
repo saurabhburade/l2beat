@@ -1,51 +1,55 @@
-import { ConfigReader, DiscoveryConfig, DiscoveryDiff } from '@l2beat/discovery'
+import type { Database } from '@l2beat/database'
+import {
+  type ConfigReader,
+  type ConfigRegistry,
+  type DiscoveryDiff,
+  type DiscoveryOutput,
+  diffDiscovery,
+} from '@l2beat/discovery'
 import { ChainId } from '@l2beat/shared-pure'
-
-import { BackendProject } from '@l2beat/config'
-import { Database } from '@l2beat/database'
-import { getDiff } from './utils/getDiff'
 
 export interface DashboardProject {
   name: string
-  configured: boolean
   diff?: DiscoveryDiff[]
-  config?: DiscoveryConfig
+  config?: ConfigRegistry
 }
 
 export async function getDashboardProjects(
-  projects: BackendProject[],
-  configs: DiscoveryConfig[],
+  configs: ConfigRegistry[],
   configReader: ConfigReader,
   db: Database,
   chain: string,
-  chainId: ChainId,
+  chainId: number,
 ): Promise<DashboardProject[]> {
-  const configuredProjects: DashboardProject[] = []
-
+  const projects: DashboardProject[] = []
   for (const config of configs) {
     const discovery = configReader.readDiscovery(config.name, chain)
     const diff: DiscoveryDiff[] = await getDiff(db, discovery, chainId)
 
     const project: DashboardProject = {
       name: config.name,
-      configured: true,
       diff,
       config: config,
     }
 
-    configuredProjects.push(project)
+    projects.push(project)
   }
+  return projects.sort((a, b) => a.name.localeCompare(b.name))
+}
 
-  const projectsList = projects.map((p) => p.projectId.toString())
-  const result = configuredProjects
-    .concat(
-      projectsList
-        .filter(
-          (project) => !configuredProjects.map((x) => x.name).includes(project),
-        )
-        .map((p) => ({ name: p, configured: false })),
-    )
-    .sort((a, b) => a.name.localeCompare(b.name))
+export async function getDiff(
+  db: Database,
+  discovery: DiscoveryOutput,
+  chainId: number,
+): Promise<DiscoveryDiff[]> {
+  const latest = await db.updateMonitor.findLatest(
+    discovery.name,
+    ChainId(chainId),
+  )
 
-  return result
+  let diff: DiscoveryDiff[] = []
+  if (latest?.discovery.entries) {
+    diff = diffDiscovery(discovery.entries, latest.discovery.entries)
+  }
+  return diff
 }

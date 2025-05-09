@@ -1,8 +1,10 @@
-import { type ReactNode } from 'react'
+'use client'
+import type { ReactNode } from 'react'
 
+import { HighlightablePrimaryCard } from '~/components/primary-card/highlightable-primary-card'
 import { cn } from '~/utils/cn'
 import { UnderReviewCallout } from '../under-review-callout'
-import { type ProjectSectionId } from './types'
+import type { ProjectSectionId } from './types'
 
 export interface ExtendedProjectSectionProps {
   title: string
@@ -12,41 +14,47 @@ export interface ExtendedProjectSectionProps {
   className?: string
   children: ReactNode
   isUnderReview?: boolean
-  includeChildrenIfUnderReview?: boolean
+  hideChildrenIfUnderReview?: boolean
   as?: 'section' | 'div'
 }
 
 export function ProjectSection(props: ExtendedProjectSectionProps) {
   const Component = props.as ?? 'section'
   return (
-    <Component
+    <HighlightablePrimaryCard
       id={props.id}
+      data-role="project-section"
       className={cn(
-        'mt-10 md:rounded-lg md:bg-gray-100 md:p-8 md:dark:bg-zinc-900',
-        props.nested && 'mt-10 md:p-0',
+        'scroll-mt-10 px-4 py-8 md:mt-10 md:scroll-mt-8 md:p-8',
+        'max-md:border-b max-md:border-divider max-md:last:border-none',
+        'md:rounded-lg',
+        props.nested && 'mt-10 p-0 md:p-0',
         props.className,
       )}
+      asChild
     >
-      <ProjectDetailsSectionHeader
-        title={props.title}
-        id={props.id}
-        sectionOrder={props.sectionOrder}
-        nested={props.nested}
-        className="mb-6"
-      />
-      {props.isUnderReview ? (
-        props.includeChildrenIfUnderReview ? (
-          <>
-            <UnderReviewCallout className="mb-6" />
-            {props.children}
-          </>
+      <Component>
+        <ProjectDetailsSectionHeader
+          title={props.title}
+          id={props.id}
+          sectionOrder={props.sectionOrder}
+          nested={props.nested}
+          className="mb-4"
+        />
+        {props.isUnderReview ? (
+          !props.hideChildrenIfUnderReview ? (
+            <>
+              <UnderReviewCallout className="mb-4" />
+              {props.children}
+            </>
+          ) : (
+            <UnderReviewCallout />
+          )
         ) : (
-          <UnderReviewCallout />
-        )
-      ) : (
-        props.children
-      )}
-    </Component>
+          props.children
+        )}
+      </Component>
+    </HighlightablePrimaryCard>
   )
 }
 
@@ -71,7 +79,7 @@ function ProjectDetailsSectionHeader(props: ProjectDetailsSectionHeaderProps) {
       {props.sectionOrder && (
         <div
           className={cn(
-            'hidden size-10 items-center justify-center rounded bg-gray-200 px-3 text-[26px] font-bold tabular-nums text-gray-700 dark:bg-zinc-700 dark:text-zinc-500 md:flex',
+            'hidden size-10 items-center justify-center rounded bg-surface-secondary px-3 text-[26px] font-bold tabular-nums text-secondary md:flex',
             props.nested && 'h-8 w-11 text-xl',
           )}
         >

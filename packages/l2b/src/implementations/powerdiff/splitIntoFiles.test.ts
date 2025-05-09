@@ -2,17 +2,26 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { expect } from 'earl'
 import mockFs from 'mock-fs'
-import { LeftRightPair } from '../powerdiff'
+import type { LeftRightPair } from '../powerdiff'
 import { splitIntoSubfiles } from './splitIntoFiles'
-import { Configuration } from './types'
+import type { Configuration } from './types'
 
 describe('splitIntoSubfiles', () => {
   const testDir = path.join(__dirname, 'fixtures', 'splitIntoSubfiles')
   const leftDir = path.join(testDir, 'left')
   const rightDir = path.join(testDir, 'right')
   let config: Configuration
+  let originalConsole: {
+    log: typeof console.log
+    error: typeof console.error
+  } = {
+    log: console.log,
+    error: console.error,
+  }
 
   before(() => {
+    originalConsole = { log: console.log, error: console.error }
+
     // Set up test directories
     fs.mkdirSync(leftDir, { recursive: true })
     fs.mkdirSync(rightDir, { recursive: true })
@@ -29,10 +38,15 @@ describe('splitIntoSubfiles', () => {
       difftasticPath: 'difft',
       context: 3,
     }
+
+    console.error = () => {}
+    console.log = () => {}
   })
 
   after(() => {
     mockFs.restore()
+    console.log = originalConsole.log
+    console.error = originalConsole.error
   })
 
   it('should split Solidity files into subfiles', () => {

@@ -10,49 +10,48 @@ visible benefits.
 You can check the detailed steps on how to add new tokens in the tvl.md file in the repository.
 */
 
-import { assert, AssetId, Token, UnixTime } from '@l2beat/shared-pure'
+import {
+  assert,
+  AssetId,
+  type LegacyToken,
+  UnixTime,
+} from '@l2beat/shared-pure'
 
-import { chains } from '../chains'
+import type { ChainConfig } from '../types'
 import generated from './generated.json'
 import { GeneratedToken } from './types'
 
-export const tokenList: Token[] = generated.tokens
-  .map((t) => GeneratedToken.parse(t))
-  .map(toToken)
-
-const tokenMapByAssetId = new Map(tokenList.map((t) => [t.id, t] as const))
-
-export function safeGetTokenByAssetId(assetId: AssetId) {
-  return tokenMapByAssetId.get(assetId)
+export function getTokenList(chains: ChainConfig[]): LegacyToken[] {
+  return generated.tokens.map((t) => toToken(GeneratedToken.parse(t), chains))
 }
 
-export function getTokenByAssetId(assetId: AssetId) {
-  const token = tokenMapByAssetId.get(assetId)
-  if (!token) {
-    throw new TypeError(`Unknown token ${assetId.toString()}`)
-  }
-  return token
-}
-
-function toToken(generated: GeneratedToken): Token {
+function toToken(
+  generated: GeneratedToken,
+  chains: ChainConfig[],
+): LegacyToken {
   const chain = chains.find((c) => c.chainId === +generated.chainId)
   assert(chain, `Chain nor found for ${generated.symbol}`)
   assert(
-    chain.minTimestampForTvl,
-    `Token added for chain without minTimestampForTvl ${chain.name}`,
+    chain.sinceTimestamp,
+    `Token added for chain without sinceTimestamp ${chain.name}`,
   )
 
-  const sinceTimestamp = new UnixTime(
+  const sinceTimestamp = UnixTime(
     Math.max(
-      generated.deploymentTimestamp.toNumber(),
-      chain.minTimestampForTvl.toNumber(),
-      generated.coingeckoListingTimestamp.toNumber(),
+      generated.deploymentTimestamp,
+      chain.sinceTimestamp,
+      generated.coingeckoListingTimestamp,
     ),
   )
 
   return {
     id: AssetId.create(chain.name, generated.address),
     ...generated,
+    chainName: chain.name,
+    url:
+      generated.address && chain.explorerUrl
+        ? `${chain.explorerUrl}/address/${generated.address}`
+        : undefined,
     sinceTimestamp,
   }
 }

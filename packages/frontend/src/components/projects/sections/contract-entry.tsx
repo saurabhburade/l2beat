@@ -1,3 +1,4 @@
+import type { ProjectUpgradeableActor, ReferenceLink } from '@l2beat/config'
 import { Callout } from '~/components/callout'
 import {
   Tooltip,
@@ -11,47 +12,42 @@ import { BulletIcon } from '~/icons/bullet'
 import { ShieldIcon } from '~/icons/shield'
 import { UnverifiedIcon } from '~/icons/unverified'
 import { cn } from '~/utils/cn'
-import { type VerificationStatus } from '~/utils/project/contracts-and-permissions/to-verification-status'
+import type { VerificationStatus } from '~/utils/project/contracts-and-permissions/to-verification-status'
+import type { Participant } from './permissions/participants'
+import { ParticipantsEntry } from './permissions/participants'
 import { UpgradeConsiderations } from './permissions/upgrade-considerations'
-import {
-  type UsedInProject,
-  UsedInProjectEntry,
-} from './permissions/used-in-project'
-import { type Reference, ReferenceList } from './reference-list'
+import type { UsedInProject } from './permissions/used-in-project'
+import { UsedInProjectEntry } from './permissions/used-in-project'
+import { ReferenceList } from './reference-list'
 
 export interface TechnologyContract {
   name: string
   addresses: TechnologyContractAddress[]
+  admins: TechnologyContractAddress[]
   chain: string
   description?: string
-  upgradeableBy?: string[]
+  upgradeableBy?: ProjectUpgradeableActor[]
   upgradeDelay?: string
   usedInProjects?: UsedInProject[]
+  participants?: Participant[]
   upgradeConsiderations?: string
-  references: Reference[]
-  implementationChanged: boolean
-  highSeverityFieldChanged: boolean
+  references: ReferenceLink[]
+  impactfulChange: boolean
 }
 
 export interface TechnologyContractAddress {
   name: string
   href: string
   address: string
-  isAdmin: boolean
   verificationStatus: VerificationStatus
 }
 
 export interface ContractEntryProps {
   contract: TechnologyContract
-  type: 'permission' | 'contract'
   className?: string
 }
 
-export function ContractEntry({
-  contract,
-  type,
-  className,
-}: ContractEntryProps) {
+export function ContractEntry({ contract, className }: ContractEntryProps) {
   const sharedProxies = contract.usedInProjects?.filter(
     (c) => c.type === 'proxy',
   )
@@ -62,8 +58,9 @@ export function ContractEntry({
     (c) => c.type === 'permission',
   )
 
-  const { color, icon } = getCalloutProps(contract, type)
+  const { color, icon } = getCalloutProps(contract)
 
+  const entries = [...contract.addresses, ...contract.admins]
   return (
     <Callout
       className={cn(color === undefined ? 'px-4' : 'p-4', className)}
@@ -72,8 +69,13 @@ export function ContractEntry({
       body={
         <>
           <div className="flex flex-wrap items-center gap-x-2 !leading-[1.15]">
-            <strong id={contract.name}>{contract.name}</strong>{' '}
-            {contract.addresses.map((address, i) => (
+            <strong
+              id={contract.name}
+              className="word-break-word scroll-mt-14 md:scroll-mt-10"
+            >
+              {contract.name}
+            </strong>{' '}
+            {entries.map((address, i) => (
               <HighlightableLink
                 key={i}
                 variant={
@@ -82,6 +84,7 @@ export function ContractEntry({
                     : undefined
                 }
                 href={address.href}
+                address={address.address}
                 className="flex items-center gap-0.5"
               >
                 {address.verificationStatus === 'unverified' &&
@@ -100,7 +103,7 @@ export function ContractEntry({
             ))}
           </div>
           {contract.description && (
-            <Markdown className="mt-2 leading-snug text-gray-850 dark:text-gray-400">
+            <Markdown className="word-break-word mt-2 leading-snug text-gray-850 dark:text-gray-400">
               {contract.description}
             </Markdown>
           )}
@@ -108,9 +111,13 @@ export function ContractEntry({
             <div className="mt-2 flex flex-wrap text-gray-850 dark:text-gray-400">
               <strong className="text-primary">Can be upgraded by:</strong>
               <div className="ml-1.5 flex flex-wrap gap-1.5">
-                {contract.upgradeableBy.map((name) => (
-                  <a key={name} className={linkVariants()} href={`#${name}`}>
-                    {name}
+                {contract.upgradeableBy.map((entry) => (
+                  <a
+                    key={entry.name}
+                    className={linkVariants()}
+                    href={`#${entry.name}`}
+                  >
+                    {`${entry.name} with ${entry.delay} delay`}
                   </a>
                 ))}
               </div>
@@ -121,6 +128,9 @@ export function ContractEntry({
               <strong className="text-primary">Upgrade delay:</strong>{' '}
               {contract.upgradeDelay}
             </p>
+          )}
+          {contract.participants && (
+            <ParticipantsEntry participants={contract.participants} />
           )}
           {sharedProxies && sharedProxies.length !== 0 && (
             <UsedInProjectEntry
@@ -154,28 +164,19 @@ export function ContractEntry({
   )
 }
 
-function getCalloutProps(
-  contract: TechnologyContract,
-  type: 'permission' | 'contract',
-) {
+function getCalloutProps(contract: TechnologyContract) {
   const isAnyAddressUnverified = contract.addresses.some(
-    (c) => c.verificationStatus === 'unverified' && !c.isAdmin,
-  )
-  const isEveryAddressUnverified = contract.addresses.every(
     (c) => c.verificationStatus === 'unverified',
   )
-  const showRedBackground =
-    (type === 'contract' && isAnyAddressUnverified) ||
-    (type === 'permission' && isEveryAddressUnverified)
 
-  if (showRedBackground) {
+  if (isAnyAddressUnverified) {
     return {
       color: 'red',
       icon: <UnverifiedIcon className="size-5 fill-red-300" />,
     } as const
   }
 
-  if (contract.implementationChanged || contract.highSeverityFieldChanged) {
+  if (contract.impactfulChange) {
     return {
       color: undefined,
       icon: (
@@ -188,4 +189,10 @@ function getCalloutProps(
     color: undefined,
     icon: <BulletIcon className="size-5" />,
   }
+}
+
+export function technologyContractKey(contract: TechnologyContract) {
+  return `${contract.name}-${contract.chain}-${contract.addresses
+    .map((a) => a.address)
+    .join('-')}`
 }

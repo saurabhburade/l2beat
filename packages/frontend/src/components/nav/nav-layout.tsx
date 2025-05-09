@@ -1,32 +1,36 @@
 import compact from 'lodash/compact'
-import { type ReactNode } from 'react'
+import type { ReactNode } from 'react'
+import { externalLinks } from '~/consts/external-links'
+import { env } from '~/env'
 import { BridgesIcon } from '~/icons/pages/bridges'
 import { DataAvailabilityIcon } from '~/icons/pages/data-availability'
+import { EcosystemsIcon } from '~/icons/pages/ecosystems'
 import { ScalingIcon } from '~/icons/pages/scaling'
 import { ZkCatalogIcon } from '~/icons/pages/zk-catalog'
 import { cn } from '~/utils/cn'
-import { LegacyNavbar } from './legacy-navbar'
-import { MobileNavProvider } from './mobile-nav-context'
-import { MobileNavbar } from './mobile-navbar'
-import { NavSidebar } from './nav-sidebar'
-import { type NavGroup } from './types'
+import { HiringBadge } from '../badge/hiring-badge'
+import { SidebarProvider } from '../core/sidebar'
+import { MobileTopNavbar } from './mobile/mobile-top-navbar'
+import { NavSidebar } from './sidebar/nav-sidebar'
+import { TopNavbar } from './top-nav/top-navbar'
+import type { NavGroup } from './types'
 
 interface Props {
   children: ReactNode
   className?: string
   logoLink: string
-  legacyNav?: boolean
+  topNavbar?: boolean
   topChildren?: ReactNode
 }
 
-export async function NavLayout({
+export function NavLayout({
   children,
   className,
   logoLink,
-  legacyNav,
+  topNavbar,
   topChildren,
 }: Props) {
-  const groups: NavGroup[] = compact([
+  const groups = compact<NavGroup>([
     {
       type: 'multiple',
       title: 'Scaling',
@@ -45,9 +49,9 @@ export async function NavLayout({
           href: '/scaling/risk',
         },
         {
-          title: 'Value Locked',
+          title: 'Value Secured',
           shortTitle: 'Value',
-          href: '/scaling/tvl',
+          href: '/scaling/tvs',
         },
         {
           title: 'Activity',
@@ -94,11 +98,6 @@ export async function NavLayout({
           title: 'Summary',
           href: '/bridges/summary',
         },
-        {
-          title: 'Risk Analysis',
-          shortTitle: 'Risks',
-          href: '/bridges/risk',
-        },
       ],
       secondaryLinks: [
         {
@@ -124,49 +123,136 @@ export async function NavLayout({
           shortTitle: 'Risks',
           href: '/data-availability/risk',
         },
+        {
+          title: 'Throughput',
+          shortTitle: 'Throughput',
+          href: '/data-availability/throughput',
+        },
       ],
     },
     {
       type: 'single',
       title: 'ZK Catalog',
+      match: 'zk-catalog',
       href: '/zk-catalog',
       icon: (
         <ZkCatalogIcon className="transition-colors duration-300 group-data-[active=true]:stroke-brand" />
       ),
     },
+    env.NEXT_PUBLIC_ECOSYSTEMS && {
+      type: 'multiple',
+      title: 'Ecosystems',
+      match: 'ecosystems',
+      disableMobileTabs: true,
+      icon: (
+        <EcosystemsIcon className="transition-colors duration-300 group-data-[active=true]:stroke-brand" />
+      ),
+      preventTitleNavigation: true,
+      links: [
+        {
+          name: 'AggLayer',
+          slug: 'agglayer',
+        },
+        {
+          name: 'Arbitrum Orbit',
+          slug: 'arbitrum-orbit',
+        },
+        {
+          name: 'Superchain',
+          slug: 'superchain',
+        },
+        {
+          name: 'The Elastic Network',
+          slug: 'the-elastic-network',
+        },
+      ]
+        .map((ecosystem) => ({
+          title: ecosystem.name,
+          href: `/ecosystems/${ecosystem.slug}`,
+        }))
+        .sort((a, b) => a.title.localeCompare(b.title)),
+    },
   ])
 
+  const sideLinks = [
+    {
+      title: 'About Us',
+      href: '/about-us',
+    },
+    {
+      title: 'Forum',
+      href: externalLinks.forum,
+    },
+    {
+      title: 'Donate',
+      href: '/donate',
+    },
+    {
+      title: 'Governance',
+      href: '/governance',
+    },
+    {
+      title: 'Glossary',
+      href: '/glossary',
+    },
+    {
+      title: 'Jobs',
+      href: externalLinks.jobs,
+      accessory: env.NEXT_PUBLIC_SHOW_HIRING_BADGE ? (
+        <HiringBadge />
+      ) : undefined,
+    },
+    {
+      title: 'Brand Kit',
+      href: externalLinks.brandKit,
+    },
+    {
+      title: 'FAQ',
+      href: '/faq',
+    },
+  ]
+
   return (
-    <MobileNavProvider>
+    <SidebarProvider>
       <div
         className={cn(
-          'relative flex flex-col overflow-x-clip lg:flex-row',
-          legacyNav && 'lg:flex-col',
+          'relative flex flex-col lg:flex-row',
+          topNavbar && 'lg:flex-col',
           className,
         )}
       >
-        {!!legacyNav && (
+        {!!topNavbar && (
           <>
             {topChildren}
-            <LegacyNavbar logoLink={logoLink} groups={groups} />
+            <TopNavbar
+              logoLink={logoLink}
+              groups={groups}
+              sideLinks={sideLinks}
+            />
           </>
         )}
-        {!legacyNav && topChildren && (
+        {!topNavbar && topChildren && (
           <div className="block lg:hidden">{topChildren}</div>
         )}
-        <MobileNavbar {...{ groups, logoLink }} />
+        <MobileTopNavbar groups={groups} logoLink={logoLink} />
         <NavSidebar
           logoLink={logoLink}
           groups={groups}
-          legacyNav={!!legacyNav}
+          sideLinks={sideLinks}
+          topNavbar={!!topNavbar}
         />
-        <div className="min-w-0 flex-1">
-          {!legacyNav && topChildren && (
+        <div
+          className={cn(
+            'min-w-0 flex-1 has-[[data-hide-overflow-x]]:overflow-x-hidden',
+            !topNavbar && 'md:pt-5 lg:ml-3 lg:pt-0',
+          )}
+        >
+          {!topNavbar && topChildren && (
             <div className="hidden lg:mr-3 lg:block xl:mr-0">{topChildren}</div>
           )}
           {children}
         </div>
       </div>
-    </MobileNavProvider>
+    </SidebarProvider>
   )
 }

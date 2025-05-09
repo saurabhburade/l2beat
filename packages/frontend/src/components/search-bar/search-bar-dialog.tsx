@@ -2,10 +2,9 @@
 
 import { assertUnreachable } from '@l2beat/shared-pure'
 import fuzzysort from 'fuzzysort'
-import { groupBy } from 'lodash'
+import groupBy from 'lodash/groupBy'
 import Image from 'next/image'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { type Entries } from 'type-fest'
+import { useMemo, useRef, useState } from 'react'
 import {
   Command,
   CommandDialog,
@@ -16,17 +15,14 @@ import {
   CommandItem,
   CommandList,
 } from '~/components/core/command'
+import { useGlobalShortcut } from '~/hooks/use-global-shortcut'
 import { useOnClickOutside } from '~/hooks/use-on-click-outside'
-import { useRouterWithProgressBar } from '../progress-bar'
-import {
-  type SearchBarCategory,
-  searchBarCategories,
-} from './search-bar-categories'
+import { useTracking } from '~/hooks/use-tracking'
+import { useRouterWithProgressBar } from '../navigation-progress-bar'
+import type { SearchBarCategory } from './search-bar-categories'
+import { searchBarCategories } from './search-bar-categories'
 import { useSearchBarContext } from './search-bar-context'
-import {
-  type AnySearchBarEntry,
-  type SearchBarProject,
-} from './search-bar-entry'
+import type { AnySearchBarEntry, SearchBarProject } from './search-bar-entry'
 import { searchBarPages } from './search-bar-pages'
 interface Props {
   allProjects: SearchBarProject[]
@@ -35,21 +31,12 @@ interface Props {
 
 export function SearchBarDialog({ recentlyAdded, allProjects }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const { track } = useTracking()
   const [value, setValue] = useState('')
   const { open, setOpen } = useSearchBarContext()
   const router = useRouterWithProgressBar()
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === '/') {
-        e.preventDefault()
-        setOpen((open) => !open)
-      }
-    }
-
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [setOpen])
+  useGlobalShortcut('/', () => setOpen((open) => !open))
 
   const filteredProjects = useMemo(
     () =>
@@ -81,7 +68,7 @@ export function SearchBarDialog({ recentlyAdded, allProjects }: Props) {
   const grouped = useMemo(() => {
     return Object.entries(
       groupBy([...filteredProjects, ...filteredPages], (p) => p.category),
-    ) as Entries<Record<SearchBarCategory, AnySearchBarEntry[]>>
+    )
   }, [filteredProjects, filteredPages])
 
   const onEscapeKeyDown = (e?: KeyboardEvent) => {
@@ -91,6 +78,17 @@ export function SearchBarDialog({ recentlyAdded, allProjects }: Props) {
       return
     }
     setOpen(false)
+  }
+
+  function onItemSelect(item: SearchBarProject | AnySearchBarEntry) {
+    setOpen(false)
+    setValue('')
+    router.push(item.href)
+    track('searchBarProjectSelected', {
+      props: {
+        name: item.name,
+      },
+    })
   }
 
   // Hide virtual keyboard on touch start
@@ -103,8 +101,9 @@ export function SearchBarDialog({ recentlyAdded, allProjects }: Props) {
       open={open}
       onOpenChange={setOpen}
       onEscapeKeyDown={onEscapeKeyDown}
+      fullScreenMobile
     >
-      <Command shouldFilter={false} sidebar className="rounded-none">
+      <Command shouldFilter={false} className="rounded-none">
         <CommandInput
           ref={inputRef}
           placeholder="Search for projects"
@@ -124,11 +123,7 @@ export function SearchBarDialog({ recentlyAdded, allProjects }: Props) {
                 return (
                   <SearchBarItem
                     key={project.id}
-                    onSelect={() => {
-                      setOpen(false)
-                      setValue('')
-                      router.push(project.href)
-                    }}
+                    onSelect={() => onItemSelect(project)}
                     label={entryToLabel(project)}
                   >
                     <Image
@@ -148,18 +143,14 @@ export function SearchBarDialog({ recentlyAdded, allProjects }: Props) {
             grouped.length > 0 &&
             grouped.map(([group, items], groupIndex) => (
               <CommandGroup
-                heading={searchBarCategories[group].name}
+                heading={searchBarCategories[group as SearchBarCategory].name}
                 key={group}
               >
                 {items.map((item, index) => {
                   return (
                     <SearchBarItem
                       key={item.href}
-                      onSelect={() => {
-                        setOpen(false)
-                        setValue('')
-                        router.push(item.href)
-                      }}
+                      onSelect={() => onItemSelect(item)}
                       label={entryToLabel(item)}
                       value={
                         // I know it looks ugly but there is a bug in CMDK that scrolls to wrong item sometimes.

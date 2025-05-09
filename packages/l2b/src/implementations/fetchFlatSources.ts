@@ -1,9 +1,9 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs'
 import path from 'path'
-import { CliLogger, HttpClient, formatSI } from '@l2beat/shared'
+import { type CliLogger, HttpClient, formatSI } from '@l2beat/shared'
 import { FlatSourcesApiResponse, formatSeconds } from '@l2beat/shared-pure'
 import chalk from 'chalk'
-import { ProgressEvent, ResponseProgress } from './common/ResponseProgress'
+import { type ProgressEvent, ResponseProgress } from './common/ResponseProgress'
 import { colorMap } from './compare-flat-sources/output'
 
 const ENDPOINT = '/api/flat-sources'
@@ -13,8 +13,9 @@ export async function fetchFlatSources(
   backendUrl: string,
 ): Promise<FlatSourcesApiResponse> {
   const httpClient = new HttpClient()
-  const response = await httpClient.fetch(`${backendUrl}${ENDPOINT}`, {
+  const response = await httpClient.fetchRaw(`${backendUrl}${ENDPOINT}`, {
     compress: true,
+    timeout: 0,
   })
 
   const progress = new ResponseProgress(response)

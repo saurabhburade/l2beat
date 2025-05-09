@@ -1,7 +1,7 @@
 import { Logger } from '@l2beat/backend-tools'
 import { UnixTime } from '@l2beat/shared-pure'
 import { expect, mockObject } from 'earl'
-import { HttpClient } from '../http/HttpClient'
+import type { HttpClient } from '../http/HttpClient'
 import { LoopringClient } from './LoopringClient'
 
 describe(LoopringClient.name, () => {
@@ -34,7 +34,7 @@ describe(LoopringClient.name, () => {
       const result = await degateClient.queryBlock(42)
       expect(result).toEqual({
         blockId: 10,
-        createdAt: new UnixTime(1),
+        createdAt: UnixTime(1),
         transactions: [{ txType: 'foo' }],
       })
       expect(http.fetch).toHaveBeenOnlyCalledWith(
@@ -56,7 +56,7 @@ describe(LoopringClient.name, () => {
       const result = await degateClient.queryBlock('latest')
       expect(result).toEqual({
         blockId: 10,
-        createdAt: new UnixTime(1),
+        createdAt: UnixTime(1),
         transactions: [{ txType: 'foo' }],
       })
       expect(http.fetch).toHaveBeenOnlyCalledWith(
@@ -78,7 +78,7 @@ describe(LoopringClient.name, () => {
       const result = await degateClient.queryBlock('latest')
       expect(result).toEqual({
         blockId: 10,
-        createdAt: new UnixTime(1),
+        createdAt: UnixTime(1),
         transactions: [{ txType: 'foo' }],
       })
       expect(http.fetch).toHaveBeenOnlyCalledWith(

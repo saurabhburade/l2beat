@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { NoDataBadge } from '~/components/badge/no-data-badge'
 import {
   TokenBreakdown,
@@ -13,7 +13,7 @@ import { SentimentText } from '~/components/sentiment-text'
 import { ValueWithPercentageChange } from '~/components/table/cells/value-with-percentage-change'
 import { InfoIcon } from '~/icons/info'
 import { RoundedWarningIcon } from '~/icons/rounded-warning'
-import { type BridgesProjectEntry } from '~/server/features/bridges/project/get-bridges-project-entry'
+import type { BridgesProjectEntry } from '~/server/features/bridges/project/get-bridges-project-entry'
 import { cn } from '~/utils/cn'
 import { formatCurrency } from '~/utils/number-format/format-currency'
 
@@ -22,22 +22,22 @@ interface Props {
 }
 
 export function BridgesProjectStats({ project }: Props) {
-  const isAnyTokenWarningBad = project.header.tvl?.tokenBreakdown.warnings.some(
+  const isAnyTokenWarningBad = project.header.tvs?.tokenBreakdown.warnings.some(
     (warning) => warning.sentiment === 'bad',
   )
 
   return (
-    <div className="grid grid-cols-1 gap-3 rounded-lg bg-gray-100 dark:bg-zinc-900 md:grid-cols-4 md:px-6 md:py-5">
+    <div className="grid grid-cols-1 gap-3 rounded-lg md:grid-cols-4 md:bg-header-secondary md:px-6 md:py-5">
       <ProjectStat
-        title="Total value locked"
-        tooltip="Total value locked in escrow contracts on Ethereum displayed together with a percentage change compared to 7D ago."
+        title="Total value secured"
+        tooltip="Total value secured in escrow contracts on Ethereum displayed together with a percentage change compared to 7D ago."
         value={
-          !project.isUpcoming && project.header.tvl ? (
+          !project.isUpcoming && project.header.tvs ? (
             <Tooltip>
               <TooltipTrigger>
                 <div>
                   <span className="flex items-center gap-2">
-                    {project.header.tvl.tokenBreakdown.warnings.length > 0 && (
+                    {project.header.tvs.tokenBreakdown.warnings.length > 0 && (
                       <RoundedWarningIcon
                         sentiment={isAnyTokenWarningBad ? 'bad' : 'warning'}
                         className="size-4"
@@ -46,27 +46,27 @@ export function BridgesProjectStats({ project }: Props) {
                     <ValueWithPercentageChange
                       className="font-bold"
                       changeClassName="text-base font-medium"
-                      change={project.header.tvl.tvlBreakdown.totalChange}
+                      change={project.header.tvs.tvsBreakdown.totalChange}
                     >
                       {formatCurrency(
-                        project.header.tvl.tvlBreakdown.total,
+                        project.header.tvs.tvsBreakdown.total,
                         'usd',
                       )}
                     </ValueWithPercentageChange>
                   </span>
                   <TokenBreakdown
-                    {...project.header.tvl.tokenBreakdown}
+                    {...project.header.tvs.tokenBreakdown}
                     className="h-[3px] w-full"
                   />
                 </div>
               </TooltipTrigger>
               <TooltipContent>
                 <TokenBreakdownTooltipContent
-                  {...project.header.tvl.tokenBreakdown}
+                  {...project.header.tvs.tokenBreakdown}
                   associatedTokenSymbols={
-                    project.header.tvl.tokenBreakdown.associatedTokens
+                    project.header.tvs.tokenBreakdown.associatedTokens
                   }
-                  tvlWarnings={project.header.tvl.tokenBreakdown.warnings}
+                  tvsWarnings={project.header.tvs.tokenBreakdown.warnings}
                 />
               </TooltipContent>
             </Tooltip>
@@ -78,20 +78,28 @@ export function BridgesProjectStats({ project }: Props) {
       <ProjectStat
         title="Destination"
         value={
-          <SentimentText
-            sentiment={project.header.destination.sentiment}
-            className="text-lg font-medium !leading-none md:text-xl md:font-bold"
-          >
-            {project.header.destination.value}
-          </SentimentText>
+          <Tooltip>
+            <TooltipTrigger disabled={!project.header.destination.description}>
+              <SentimentText
+                sentiment={project.header.destination.sentiment ?? 'neutral'}
+                className="text-lg font-medium !leading-none md:text-xl md:font-bold"
+              >
+                {project.header.destination.value}
+              </SentimentText>
+            </TooltipTrigger>
+            <TooltipContent>
+              {project.header.destination.description}
+            </TooltipContent>
+          </Tooltip>
         }
       />
       <ProjectStat
         title="Validated by"
+        tooltip="How are the messages sent via this bridge checked?"
         value={
           project.header.validatedBy ? (
             <SentimentText
-              sentiment={project.header.validatedBy.sentiment}
+              sentiment={project.header.validatedBy.sentiment ?? 'neutral'}
               className="text-lg font-medium !leading-none md:text-xl md:font-bold"
             >
               {project.header.validatedBy.value}
@@ -121,14 +129,12 @@ function ProjectStat(props: ProjectStat) {
         props.className,
       )}
     >
-      <div className="flex flex-row gap-1.5">
-        <span className="text-xs text-gray-500 dark:text-gray-600">
-          {props.title}
-        </span>
+      <div className="flex flex-row items-center gap-1.5">
+        <span className="text-xs text-secondary">{props.title}</span>
         {props.tooltip && (
           <Tooltip>
             <TooltipTrigger className="-translate-y-px md:translate-y-0">
-              <InfoIcon className="mt-0.5 md:size-3.5" variant="gray" />
+              <InfoIcon className="max-md:mt-0.5 md:size-3.5" variant="gray" />
             </TooltipTrigger>
             <TooltipContent>{props.tooltip}</TooltipContent>
           </Tooltip>

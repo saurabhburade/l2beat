@@ -14,27 +14,35 @@ import { cn } from '~/utils/cn'
 import { formatLink } from '~/utils/format-link'
 import { parseSocial } from './parse-social'
 import { ProjectLinkIcon } from './project-link-icon'
-import { type ProjectLink } from './types'
+import type { ProjectLink } from './types'
 
 interface Props {
   projectLinks: ProjectLink[]
+  variant: 'primary' | 'header'
 }
 
-export function DesktopProjectLinks({ projectLinks }: Props) {
+export function DesktopProjectLinks({ projectLinks, variant }: Props) {
   return (
-    <div>
-      <NavigationMenu>
+    <NavigationMenu asChild>
+      <div>
         <NavigationMenuList>
           {projectLinks.map((link) => (
-            <ProjectLinkItem key={link.name} projectLink={link} />
+            <ProjectLinkItem
+              key={link.name}
+              projectLink={link}
+              variant={variant}
+            />
           ))}
         </NavigationMenuList>
-      </NavigationMenu>
-    </div>
+      </div>
+    </NavigationMenu>
   )
 }
 
-function ProjectLinkItem({ projectLink }: { projectLink: ProjectLink }) {
+function ProjectLinkItem({
+  projectLink,
+  variant,
+}: { projectLink: ProjectLink; variant: 'primary' | 'header' }) {
   if (projectLink.links.length === 1 && projectLink.name !== 'Social') {
     return (
       <NavigationMenuItem>
@@ -44,28 +52,40 @@ function ProjectLinkItem({ projectLink }: { projectLink: ProjectLink }) {
           target="_blank"
           className={cn(
             navigationMenuTriggerStyle(),
+            variant === 'header' && 'bg-header-secondary',
+            'ring-inset ring-brand focus:ring-2',
             'flex flex-row items-center gap-1.5',
           )}
         >
           <ProjectLinkIcon name={projectLink.name} />
           {projectLink.name}
-          <CustomLinkIcon className="fill-current" />
+          <CustomLinkIcon className="shrink-0 fill-current" />
         </NavigationMenuLink>
       </NavigationMenuItem>
     )
   }
 
-  return <MultiProjectLink projectLink={projectLink} />
+  return <MultiProjectLink projectLink={projectLink} variant={variant} />
 }
 
-function MultiProjectLink({ projectLink }: { projectLink: ProjectLink }) {
+function MultiProjectLink({
+  projectLink,
+  variant,
+}: { projectLink: ProjectLink; variant: 'primary' | 'header' }) {
   return (
     <NavigationMenuItem>
-      <NavigationMenuTrigger>
+      <NavigationMenuTrigger
+        className={cn(
+          'ring-inset ring-brand focus:ring-2',
+          variant === 'header' && 'bg-header-secondary',
+        )}
+      >
         <ProjectLinkIcon name={projectLink.name} />
         {projectLink.name}
       </NavigationMenuTrigger>
-      <NavigationMenuContent>
+      <NavigationMenuContent
+        className={cn(variant === 'header' && 'bg-header-secondary')}
+      >
         {projectLink.links.map((link) => {
           const parsedSocial =
             projectLink.name === 'Social' ? parseSocial(link) : undefined
@@ -77,6 +97,10 @@ function MultiProjectLink({ projectLink }: { projectLink: ProjectLink }) {
               target="_blank"
               className={cn(
                 navigationMenuTriggerStyle(),
+                variant === 'primary' &&
+                  'bg-surface-primary hover:bg-surface-secondary focus:bg-surface-secondary',
+                variant === 'header' &&
+                  'bg-header-secondary hover:bg-surface-tertiary focus:bg-surface-tertiary',
                 'flex w-full justify-start gap-1.5',
               )}
             >
@@ -88,7 +112,7 @@ function MultiProjectLink({ projectLink }: { projectLink: ProjectLink }) {
                 />
               )}
               {parsedSocial ? parsedSocial.text : formatLink(link)}
-              <CustomLinkIcon className="fill-current" />
+              <CustomLinkIcon className="shrink-0 fill-current" />
             </NavigationMenuLink>
           )
         })}

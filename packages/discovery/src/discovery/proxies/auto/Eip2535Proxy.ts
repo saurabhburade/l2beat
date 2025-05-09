@@ -2,11 +2,16 @@
 // https://eips.ethereum.org/EIPS/eip-2535#a-note-on-implementing-interfaces
 // every contract implementing this standard needs to have facetAddresses() view function
 
-import { ProxyDetails } from '@l2beat/discovery-types'
-import { assert, EthereumAddress, Hash256, UnixTime } from '@l2beat/shared-pure'
+import {
+  assert,
+  type EthereumAddress,
+  Hash256,
+  UnixTime,
+} from '@l2beat/shared-pure'
+import type { ProxyDetails } from '../types'
 
 import { utils } from 'ethers'
-import { IProvider } from '../../provider/IProvider'
+import type { IProvider } from '../../provider/IProvider'
 
 async function getPastUpgrades(provider: IProvider, address: EthereumAddress) {
   const abi = new utils.Interface([
@@ -25,10 +30,7 @@ async function getPastUpgrades(provider: IProvider, address: EthereumAddress) {
   assert(blocks.every((b) => b !== undefined))
 
   const dateMap = Object.fromEntries(
-    blocks.map((b) => [
-      b.number,
-      new UnixTime(b.timestamp).toDate().toISOString(),
-    ]),
+    blocks.map((b) => [b.number, UnixTime.toDate(b.timestamp).toISOString()]),
   )
 
   const selectorAddress: Map<string, string> = new Map()

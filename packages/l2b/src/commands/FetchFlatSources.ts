@@ -1,9 +1,8 @@
+import { getDiscoveryPaths } from '@l2beat/discovery'
 import { CliLogger } from '@l2beat/shared'
-import { assert } from '@l2beat/shared-pure'
 import chalk from 'chalk'
-import { command, option, optional } from 'cmd-ts'
+import { boolean, command, flag, option, optional } from 'cmd-ts'
 import { keyInYN } from 'readline-sync'
-import { readConfig } from '../config/readConfig'
 import {
   fetchFlatSources,
   saveIntoDirectory,
@@ -28,12 +27,25 @@ export const FetchFlatSources = command({
       short: 'o',
       env: 'L2B_FLAT_SOURCES_OUTPUT_PATH',
     }),
+    confirmed: flag({
+      type: boolean,
+      long: 'yes',
+      short: 'y',
+      description: 'accept the refresh, do not prompt the user.',
+    }),
+    quiet: flag({
+      type: boolean,
+      long: 'quiet',
+      short: 'q',
+      description: 'do not print anything on the terminal',
+    }),
   },
   handler: async (args) => {
-    const config = readConfig()
-    const logger = new CliLogger()
+    const paths = getDiscoveryPaths()
+    const logger = new CliLogger(args.quiet)
     if (
-      config.discoveryPath !== undefined &&
+      !args.confirmed &&
+      paths.discovery !== undefined &&
       !keyInYN(
         `${chalk.red(
           'WARNING:',
@@ -45,15 +57,9 @@ export const FetchFlatSources = command({
 
     const flat = await fetchFlatSources(logger, args.backendUrl)
 
-    assert(
-      config.discoveryPath !== undefined || args.outputPath !== undefined,
-      'The output is undefined. Either create a .l2b file in the root of the project pointing the discovery path or provide the output path with --output.',
-    )
-
     if (args.outputPath !== undefined) {
       saveIntoDirectory(logger, flat, args.outputPath)
-    } else if (config.discoveryPath !== undefined) {
-      saveIntoDiscovery(logger, flat, config.discoveryPath)
     }
+    saveIntoDiscovery(logger, flat, paths.discovery)
   },
 })

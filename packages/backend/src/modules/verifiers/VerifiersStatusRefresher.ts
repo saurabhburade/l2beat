@@ -1,11 +1,11 @@
-import { Logger } from '@l2beat/backend-tools'
+import type { Logger } from '@l2beat/backend-tools'
 
-import { ChainConfig, OnchainVerifier } from '@l2beat/config'
-import { Database } from '@l2beat/database'
+import type { ChainConfig, OnchainVerifier } from '@l2beat/config'
+import type { Database } from '@l2beat/database'
 import { BlockscoutV2Client } from '@l2beat/shared'
-import { assert, ChainId, UnixTime } from '@l2beat/shared-pure'
-import { Peripherals } from '../../peripherals/Peripherals'
-import { Clock } from '../../tools/Clock'
+import { assert, type ChainId, UnixTime } from '@l2beat/shared-pure'
+import type { Peripherals } from '../../peripherals/Peripherals'
+import type { Clock } from '../../tools/Clock'
 import { TaskQueue } from '../../tools/queue/TaskQueue'
 
 export type VerifiersStatusRefresherDeps = {
@@ -13,7 +13,7 @@ export type VerifiersStatusRefresherDeps = {
   peripherals: Peripherals
   clock: Clock
   logger: Logger
-  verifiersListProvider: () => Promise<OnchainVerifier[]>
+  verifiers: OnchainVerifier[]
   chains: ChainConfig[]
 }
 
@@ -40,20 +40,16 @@ export class VerifiersStatusRefresher {
   }
 
   async refresh() {
-    const verifiers = await this.$.verifiersListProvider()
+    assert(this.$.verifiers.length > 0, 'No verifier addresses found')
 
-    assert(verifiers.length > 0, 'No verifier addresses found')
-
-    const toRefresh = verifiers.map(async (verifier) => {
+    const toRefresh = this.$.verifiers.map(async (verifier) => {
       try {
         const blockscoutClient = this.getBlockscoutClient(verifier.chainId)
         const transactions = await blockscoutClient.getInternalTransactions(
           verifier.contractAddress,
         )
 
-        transactions.sort(
-          (a, b) => b.timestamp.toNumber() - a.timestamp.toNumber(),
-        )
+        transactions.sort((a, b) => b.timestamp - a.timestamp)
 
         const lastUsed = transactions[0].timestamp
 
@@ -76,15 +72,14 @@ export class VerifiersStatusRefresher {
 
   getBlockscoutClient(chainId: ChainId): BlockscoutV2Client {
     const chain = this.$.chains.find((c) => c.chainId === chainId.valueOf())
-
-    if (!chain?.blockscoutV2ApiUrl) {
+    const blockscoutV2 = chain?.apis.find((x) => x.type === 'blockscoutV2')
+    if (!blockscoutV2) {
       throw new Error(
         `Blockscout API URL is not configured for chain ${chainId}`,
       )
     }
-
     return this.$.peripherals.getClient(BlockscoutV2Client, {
-      url: chain.blockscoutV2ApiUrl,
+      url: blockscoutV2.url,
     })
   }
 }

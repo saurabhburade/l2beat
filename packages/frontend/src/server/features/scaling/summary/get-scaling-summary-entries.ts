@@ -1,41 +1,42 @@
-import {
-  type Layer2,
-  type Layer3,
-  getCurrentEntry,
-  layer2s,
-  layer3s,
+import type {
+  Project,
+  ProjectScalingCapability,
+  ProjectScalingCategory,
+  ProjectScalingDa,
+  ProjectScalingPurpose,
+  ProjectScalingStack,
+  ProjectScalingStage,
+  ReasonForBeingInOther,
+  WarningWithSentiment,
 } from '@l2beat/config'
-import { compact } from 'lodash'
+import compact from 'lodash/compact'
 import { getL2Risks } from '~/app/(side-nav)/scaling/_utils/get-l2-risks'
-import { type RosetteValue } from '~/components/rosette/types'
-import { groupByTabs } from '~/utils/group-by-tabs'
-import {
-  type ProjectChanges,
-  getProjectsChangeReport,
-} from '../../projects-change-report/get-projects-change-report'
-import {
-  type ActivityLatestUopsData,
-  getActivityLatestUops,
-} from '../activity/get-activity-latest-tps'
+import { groupByScalingTabs } from '~/app/(side-nav)/scaling/_utils/group-by-scaling-tabs'
+import type { RosetteValue } from '~/components/rosette/types'
+import { ps } from '~/server/projects'
+import type { ProjectChanges } from '../../projects-change-report/get-projects-change-report'
+import { getProjectsChangeReport } from '../../projects-change-report/get-projects-change-report'
+import type { ActivityLatestUopsData } from '../activity/get-activity-latest-tps'
+import { getActivityLatestUops } from '../activity/get-activity-latest-tps'
+import { getActivitySyncWarning } from '../activity/utils/is-activity-synced'
+import type { CommonScalingEntry } from '../get-common-scaling-entry'
 import { getCommonScalingEntry } from '../get-common-scaling-entry'
-import {
-  type LatestTvl,
-  get7dTokenBreakdown,
-} from '../tvl/utils/get-7d-token-breakdown'
-import { getAssociatedTokenWarning } from '../tvl/utils/get-associated-token-warning'
-import { compareStageAndTvl } from '../utils/compare-stage-and-tvl'
-import { isProjectOther } from '../utils/is-project-other'
+import { get7dTvsBreakdown } from '../tvs/get-7d-tvs-breakdown'
+import type { ProjectSevenDayTvsBreakdown } from '../tvs/get-7d-tvs-breakdown'
+import { getAssociatedTokenWarning } from '../tvs/utils/get-associated-token-warning'
+import { compareStageAndTvs } from '../utils/compare-stage-and-tvs'
 
-export type ScalingSummaryEntry = Awaited<
-  ReturnType<typeof getScalingSummaryEntry>
->
 export async function getScalingSummaryEntries() {
-  const projects = [...layer2s, ...layer3s].filter(
-    (project) => !project.isUpcoming && !project.isArchived,
-  )
-  const [projectsChangeReport, tvl, projectsActivity] = await Promise.all([
+  const projects = await ps.getProjects({
+    select: ['statuses', 'scalingInfo', 'scalingRisks', 'display'],
+    optional: ['tvsInfo', 'scalingDa', 'scalingStage', 'chainConfig'],
+    where: ['isScaling'],
+    whereNot: ['isUpcoming', 'archivedAt'],
+  })
+
+  const [projectsChangeReport, tvs, projectsActivity] = await Promise.all([
     getProjectsChangeReport(),
-    get7dTokenBreakdown({ type: 'layer2' }),
+    get7dTvsBreakdown({ type: 'layer2' }),
     getActivityLatestUops(projects),
   ])
 
@@ -44,85 +45,115 @@ export async function getScalingSummaryEntries() {
       getScalingSummaryEntry(
         project,
         projectsChangeReport.getChanges(project.id),
-        tvl.projects[project.id.toString()],
+        tvs.projects[project.id.toString()],
         projectsActivity[project.id.toString()],
       ),
     )
-    .sort(compareStageAndTvl)
+    .sort(compareStageAndTvs)
 
-  return groupByTabs(entries)
+  return groupByScalingTabs(entries)
 }
 
-function getScalingSummaryEntry(
-  project: Layer2 | Layer3,
+export interface ScalingSummaryEntry extends CommonScalingEntry {
+  capability: ProjectScalingCapability
+  stage: ProjectScalingStage
+  category: ProjectScalingCategory
+  purposes: ProjectScalingPurpose[]
+  stack: ProjectScalingStack | undefined
+  dataAvailability: ProjectScalingDa | undefined
+  reasonsForBeingOther: ReasonForBeingInOther[] | undefined
+  tvs: {
+    breakdown:
+      | {
+          total: number
+          ether: number
+          stablecoin: number
+          associated: number
+        }
+      | undefined
+    change: number | undefined
+    associatedTokensExcludedChange: number | undefined
+    associatedTokens: string[]
+    warnings: WarningWithSentiment[]
+    associatedTokensExcludedWarnings: WarningWithSentiment[]
+  }
+  activity:
+    | {
+        pastDayUops: number
+        change: number
+        isSynced: boolean
+      }
+    | undefined
+  tvsOrder: number
+  risks: RosetteValue[]
+  baseLayerRisks: RosetteValue[] | undefined
+}
+
+export function getScalingSummaryEntry(
+  project: Project<
+    'statuses' | 'scalingInfo' | 'scalingRisks' | 'display',
+    'tvsInfo' | 'scalingDa' | 'scalingStage' | 'chainConfig'
+  >,
   changes: ProjectChanges,
-  latestTvl: LatestTvl['projects'][string] | undefined,
+  latestTvs: ProjectSevenDayTvsBreakdown | undefined,
   activity: ActivityLatestUopsData[string] | undefined,
-) {
+): ScalingSummaryEntry {
   const associatedTokenWarning =
-    latestTvl && latestTvl.breakdown.total > 0
+    latestTvs && latestTvs.breakdown.total > 0
       ? getAssociatedTokenWarning({
           associatedRatio:
-            latestTvl.breakdown.associated / latestTvl.breakdown.total,
-          name: project.display.name,
-          associatedTokens: project.config.associatedTokens ?? [],
+            latestTvs.associated.total / latestTvs.breakdown.total,
+          name: project.name,
+          associatedTokens: project.tvsInfo?.associatedTokens ?? [],
         })
       : undefined
-  const associatedTokensExcludedWarnings = compact([project.display.tvlWarning])
-  const dataAvailability = getCurrentEntry(project.dataAvailability)
+  const associatedTokensExcludedWarnings = compact(project.tvsInfo?.warnings)
+  const activitySyncWarning = activity
+    ? getActivitySyncWarning(activity.syncedUntil)
+    : undefined
 
   return {
-    ...getCommonScalingEntry({ project, changes, syncStatus: undefined }),
+    ...getCommonScalingEntry({
+      project,
+      changes,
+      syncWarning: activitySyncWarning,
+    }),
     stage:
-      isProjectOther(project) || !project.stage
-        ? {
-            stage: 'NotApplicable' as const,
-          }
-        : project.stage,
-    category: project.display.category,
-    provider: project.display.provider,
-    dataAvailability,
-    mainPermissions: project.display.mainPermissions,
-    reasonsForBeingOther: project.display.reasonsForBeingOther,
-    tvl: {
-      breakdown: latestTvl?.breakdown,
-      change: latestTvl?.change,
-      associatedTokensExcludedChange: latestTvl?.associatedTokensExcludedChange,
-      associatedTokens: project.config.associatedTokens ?? [],
+      project.scalingInfo.isOther || !project.scalingStage
+        ? { stage: 'NotApplicable' as const }
+        : project.scalingStage,
+    capability: project.scalingInfo.capability,
+    category: project.scalingInfo.type,
+    stack: project.scalingInfo.stack,
+    dataAvailability: project.scalingDa,
+    purposes: project.scalingInfo.purposes,
+    reasonsForBeingOther: project.scalingInfo.reasonsForBeingOther,
+    tvs: {
+      breakdown: latestTvs?.breakdown && {
+        ...latestTvs.breakdown,
+        associated: latestTvs.associated.total,
+      },
+      change: latestTvs?.change.total,
+      associatedTokensExcludedChange:
+        latestTvs?.changeExcludingAssociated.total,
+      associatedTokens: project.tvsInfo?.associatedTokens ?? [],
       warnings: compact([
         ...associatedTokensExcludedWarnings,
         associatedTokenWarning?.sentiment === 'bad' && associatedTokenWarning,
       ]),
       associatedTokensExcludedWarnings,
     },
-    activity: activity
-      ? {
-          pastDayUops: activity.pastDayUops,
-          change: activity.change,
-        }
+    activity: activity && {
+      pastDayUops: activity.pastDayUops,
+      change: activity.change,
+      isSynced: !activitySyncWarning,
+    },
+    tvsOrder: latestTvs?.breakdown.total ?? -1,
+    risks: getL2Risks(
+      project.scalingRisks.stacked ?? project.scalingRisks.self,
+    ),
+    baseLayerRisks: project.scalingRisks.host
+      ? getL2Risks(project.scalingRisks.host)
       : undefined,
-    tvlOrder: latestTvl?.breakdown.total ?? 0,
-    ...getRisks(project),
-  }
-}
-
-export function getRisks(project: Layer2 | Layer3): {
-  risks: RosetteValue[]
-  baseLayerRisks: RosetteValue[] | undefined
-} {
-  if (project.type === 'layer2') {
-    return {
-      risks: getL2Risks(project.riskView),
-      baseLayerRisks: undefined,
-    }
-  }
-  const baseLayer = layer2s.find((p) => p.id === project.hostChain)
-  const projectRisks = getL2Risks(project.riskView)
-  const baseLayerRisks = baseLayer ? getL2Risks(baseLayer.riskView) : undefined
-  const stackedRisks =
-    project.type === 'layer3' ? project.stackedRiskView : undefined
-  return {
-    risks: stackedRisks ? getL2Risks(stackedRisks) : projectRisks,
-    baseLayerRisks,
   }
 }

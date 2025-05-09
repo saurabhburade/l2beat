@@ -1,43 +1,45 @@
-import {
-  type BridgeDisplay,
-  type BridgeRiskView,
-  bridges,
-} from '@l2beat/config'
+import type { BridgeCategory, TableReadyValue } from '@l2beat/config'
+import type { TabbedBridgeEntries } from '~/app/(side-nav)/bridges/_utils/group-by-bridge-tabs'
+import { groupByBridgeTabs } from '~/app/(side-nav)/bridges/_utils/group-by-bridge-tabs'
+import { ps } from '~/server/projects'
 import { getProjectsChangeReport } from '../projects-change-report/get-projects-change-report'
-import { compareTvl } from '../scaling/tvl/utils/compare-tvl'
-import { get7dTokenBreakdown } from '../scaling/tvl/utils/get-7d-token-breakdown'
-import {
-  type CommonBridgesEntry,
-  getCommonBridgesEntry,
-} from './get-common-bridges-entry'
+import { get7dTvsBreakdown } from '../scaling/tvs/get-7d-tvs-breakdown'
+import { compareTvs } from '../scaling/tvs/utils/compare-tvs'
+import type { CommonBridgesEntry } from './get-common-bridges-entry'
+import { getCommonBridgesEntry } from './get-common-bridges-entry'
 
 export interface BridgesArchivedEntry extends CommonBridgesEntry {
-  type: BridgeDisplay['category']
-  validatedBy: BridgeRiskView['validatedBy']
-  totalTvl: number | undefined
-  tvlOrder: number
+  type: BridgeCategory
+  validatedBy: TableReadyValue
+  totalTvs: number | undefined
+  tvsOrder: number
 }
 
 export async function getBridgesArchivedEntries(): Promise<
-  BridgesArchivedEntry[]
+  TabbedBridgeEntries<BridgesArchivedEntry>
 > {
-  const [tvl7dBreakdown, projectsChangeReport] = await Promise.all([
-    get7dTokenBreakdown({ type: 'bridge' }),
+  const [tvs7dBreakdown, projectsChangeReport, projects] = await Promise.all([
+    get7dTvsBreakdown({ type: 'bridge' }),
     getProjectsChangeReport(),
+    ps.getProjects({
+      select: ['statuses', 'bridgeInfo', 'bridgeRisks'],
+      where: ['isBridge', 'archivedAt'],
+    }),
   ])
 
-  return bridges
-    .filter((bridge) => bridge.isArchived)
-    .map((bridge) => {
-      const tvl = tvl7dBreakdown.projects[bridge.id.toString()]
-      const changes = projectsChangeReport.getChanges(bridge.id)
+  const entries = projects
+    .map((project) => {
+      const tvs = tvs7dBreakdown.projects[project.id.toString()]
+      const changes = projectsChangeReport.getChanges(project.id)
       return {
-        ...getCommonBridgesEntry({ bridge, changes }),
-        type: bridge.display.category,
-        validatedBy: bridge.riskView?.validatedBy,
-        totalTvl: tvl?.breakdown.total,
-        tvlOrder: tvl?.breakdown.total ?? 0,
+        ...getCommonBridgesEntry({ project, changes }),
+        type: project.bridgeInfo.category,
+        validatedBy: project.bridgeRisks.validatedBy,
+        totalTvs: tvs?.breakdown.total,
+        tvsOrder: tvs?.breakdown.total ?? -1,
       }
     })
-    .sort(compareTvl)
+    .sort(compareTvs)
+
+  return groupByBridgeTabs(entries)
 }

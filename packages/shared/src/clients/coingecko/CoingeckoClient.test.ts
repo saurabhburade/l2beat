@@ -2,9 +2,12 @@ import { Logger } from '@l2beat/backend-tools'
 import { CoingeckoId, UnixTime } from '@l2beat/shared-pure'
 import { expect, mockObject } from 'earl'
 import { Response } from 'node-fetch'
-import { HttpClient } from '../../clients'
+import type { HttpClient } from '../../clients'
 import { CoingeckoClient } from './CoingeckoClient'
-import { CoinMarketChartRangeData, CoinMarketChartRangeResult } from './types'
+import type {
+  CoinMarketChartRangeData,
+  CoinMarketChartRangeResult,
+} from './types'
 
 describe(CoingeckoClient.name, () => {
   const logger = Logger.SILENT
@@ -48,8 +51,8 @@ describe(CoingeckoClient.name, () => {
       const result = await coingeckoClient.getCoinMarketChartRange(
         CoingeckoId('ethereum'),
         'usd',
-        new UnixTime(1592577232),
-        new UnixTime(1622577232),
+        UnixTime(1592577232),
+        UnixTime(1622577232),
       )
 
       expect(result).toEqual(MOCK_TRANSFORMED_DATA)
@@ -70,8 +73,8 @@ describe(CoingeckoClient.name, () => {
       await coingeckoClient.getCoinMarketChartRange(
         CoingeckoId('ethereum'),
         'usd',
-        new UnixTime(1592577232),
-        new UnixTime(1622577232),
+        UnixTime(1592577232),
+        UnixTime(1622577232),
       )
     })
   })

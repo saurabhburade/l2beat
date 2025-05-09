@@ -1,7 +1,7 @@
-import { SavedConfiguration, UnixTime } from '@l2beat/shared-pure'
+import { type SavedConfiguration, UnixTime } from '@l2beat/shared-pure'
 import { expect, mockObject } from 'earl'
 
-import { TrackedTxConfigEntry } from '@l2beat/shared'
+import type { TrackedTxConfigEntry } from '@l2beat/shared'
 import { getSyncedUntil } from './getSyncedUntil'
 
 const FROM = UnixTime.fromDate(new Date('2022-01-01T00:00:00Z'))
@@ -35,11 +35,11 @@ describe(getSyncedUntil.name, () => {
         maxHeight: null,
       }),
       mockObject<Configuration>({
-        currentHeight: FROM.toNumber(),
+        currentHeight: FROM,
         maxHeight: null,
       }),
       mockObject<Configuration>({
-        currentHeight: FROM.add(2, 'hours').toNumber(),
+        currentHeight: FROM + 2 * UnixTime.HOUR,
         maxHeight: null,
       }),
     ])
@@ -54,19 +54,19 @@ describe(getSyncedUntil.name, () => {
         maxHeight: null,
       }),
       mockObject<Configuration>({
-        currentHeight: FROM.add(1, 'hours').toNumber(),
-        maxHeight: FROM.add(5, 'hours').toNumber(),
+        currentHeight: FROM + 1 * UnixTime.HOUR,
+        maxHeight: FROM + 5 * UnixTime.HOUR,
       }),
       mockObject<Configuration>({
-        currentHeight: FROM.add(2, 'hours').toNumber(),
-        maxHeight: FROM.add(6, 'hours').toNumber(),
+        currentHeight: FROM + 2 * UnixTime.HOUR,
+        maxHeight: FROM + 6 * UnixTime.HOUR,
       }),
       mockObject<Configuration>({
-        currentHeight: FROM.add(4, 'hours').toNumber(),
-        maxHeight: FROM.add(6, 'hours').toNumber(),
+        currentHeight: FROM + 4 * UnixTime.HOUR,
+        maxHeight: FROM + 6 * UnixTime.HOUR,
       }),
     ])
 
-    expect(result).toEqual(FROM.add(1, 'hours'))
+    expect(result).toEqual(FROM + 1 * UnixTime.HOUR)
   })
 })

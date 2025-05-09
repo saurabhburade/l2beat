@@ -1,45 +1,46 @@
-import Bugsnag from '@bugsnag/js'
 import {
-  ElasticSearchTransport,
-  ElasticSearchTransportOptions,
+  type Env,
   LogFormatterEcs,
   LogFormatterJson,
   LogFormatterPretty,
   Logger,
-  LoggerOptions,
-  LoggerTransportOptions,
+  type LoggerOptions,
+  type LoggerTransportOptions,
   getEnv,
 } from '@l2beat/backend-tools'
 
+import {
+  ElasticSearchTransport,
+  type ElasticSearchTransportOptions,
+} from './peripherals/elastic-search/ElasticSearchTransport'
+
+import apm from 'elastic-apm-node'
 import { Application } from './Application'
 import { getConfig } from './config'
-import { initializeErrorReporting, reportError } from './tools/ErrorReporter'
 
 main().catch(() => {
   process.exit(1)
 })
 
 async function main() {
-  const bugsnagApiKey = getEnv().optionalString('BUGSNAG_API_KEY')
-  const environment = getEnv().optionalString('DEPLOYMENT_ENV') ?? 'local'
+  const env = getEnv()
 
-  const isErrorReportingEnabled = initializeErrorReporting(
-    bugsnagApiKey,
-    environment,
-  )
+  const logger = createLogger(env)
 
-  const logger = createLogger(environment)
+  apm.start({
+    active: process.env.ES_APM_ENABLED === 'true',
+    environment: env.optionalString('DEPLOYMENT_ENV') ?? 'local',
+    secretToken: process.env.ES_APM_SECRET_TOKEN ?? '',
+    serverUrl: process.env.ES_APM_SERVER_URL ?? 'http://localhost:8200',
+    serviceName: process.env.ES_APM_SERVICE_NAME ?? 'l2beat-local',
+  })
 
   try {
-    const config = getConfig()
+    const config = await getConfig()
     const app = new Application(config, logger)
     await app.start()
   } catch (e) {
-    logger.error('Failed to start the application', e)
-
-    if (isErrorReportingEnabled) {
-      await reportIndexError(e)
-    }
+    logger.critical('Failed to start the application', e)
 
     // wait 10 seconds for the error to be reported
     console.log('Waiting 10 seconds for the error to be reported')
@@ -49,25 +50,8 @@ async function main() {
   }
 }
 
-async function reportIndexError(e: unknown) {
-  if (typeof e === 'string') {
-    Bugsnag.notify(e, (event) => {
-      event.context = 'Backend index.ts'
-    })
-  } else if (e instanceof Error) {
-    Bugsnag.notify(e, (event) => {
-      event.context = 'Backend index.ts'
-    })
-  } else {
-    Bugsnag.notify('Unknown error', (event) => {
-      event.context = 'Backend index.ts'
-      event.addMetadata('error', { message: e })
-    })
-  }
-}
-
-function createLogger(environment: string): Logger {
-  const isLocal = environment === 'local'
+function createLogger(env: Env): Logger {
+  const isLocal = env.optionalString('DEPLOYMENT_ENV') === undefined
 
   const loggerTransports: LoggerTransportOptions[] = [
     {
@@ -77,15 +61,15 @@ function createLogger(environment: string): Logger {
   ]
 
   // Elastic Search logging
-  const esEnabled = getEnv().optionalBoolean('ES_ENABLED') ?? false
+  const esEnabled = env.optionalBoolean('ES_ENABLED') ?? false
 
   if (esEnabled) {
     console.log('Elastic Search logging enabled')
     const options: ElasticSearchTransportOptions = {
-      node: getEnv().string('ES_NODE'),
-      apiKey: getEnv().string('ES_API_KEY'),
-      indexPrefix: getEnv().string('ES_INDEX_PREFIX'),
-      flushInterval: getEnv().optionalInteger('ES_FLUSH_INTERVAL'),
+      node: env.string('ES_NODE'),
+      apiKey: env.string('ES_API_KEY'),
+      indexPrefix: env.string('ES_INDEX_PREFIX'),
+      flushInterval: env.optionalInteger('ES_FLUSH_INTERVAL'),
     }
 
     loggerTransports.push({
@@ -95,10 +79,10 @@ function createLogger(environment: string): Logger {
   }
 
   const options: Partial<LoggerOptions> = {
-    logLevel: getEnv().string('LOG_LEVEL', 'INFO') as LoggerOptions['logLevel'],
+    logLevel: env.string('LOG_LEVEL', 'INFO') as LoggerOptions['logLevel'],
     utc: isLocal ? false : true,
     transports: loggerTransports,
-    reportError: isLocal ? undefined : reportError,
+    metricsEnabled: env.boolean('CLIENT_METRICS_ENABLED', esEnabled),
   }
 
   return new Logger(options)

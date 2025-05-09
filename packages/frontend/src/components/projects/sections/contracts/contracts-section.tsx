@@ -1,36 +1,30 @@
 'use client'
 import partition from 'lodash/partition'
 import { DiagramImage } from '~/components/diagram-image'
-import { type DiagramParams } from '~/utils/project/get-diagram-params'
-import { ContractEntry, type TechnologyContract } from '../contract-entry'
+import type { DiagramParams } from '~/utils/project/get-diagram-params'
+import type { TechnologyContract } from '../contract-entry'
+import { ContractEntry, technologyContractKey } from '../contract-entry'
 import { ProjectSection } from '../project-section'
-import { ReferenceList } from '../reference-list'
-import { type Reference } from '../reference-list'
-import { RiskList, type TechnologyRisk } from '../risk-list'
-import { type ProjectSectionId } from '../types'
+import type { TechnologyRisk } from '../risk-list'
+import { RiskList } from '../risk-list'
+import type { ProjectSectionId } from '../types'
 import { ContractsUpdated } from './contracts-updated'
-import { TechnologyIncompleteNote } from './technology-incomplete-note'
 
 export interface ContractsSectionProps {
   id: ProjectSectionId
   title: string
   sectionOrder: string
   nested?: boolean
-  chainName: string
-  contracts: TechnologyContract[]
-  nativeContracts: Record<string, TechnologyContract[]>
+  contracts: Record<string, TechnologyContract[]>
   escrows: TechnologyContract[]
   risks: TechnologyRisk[]
-  references: Reference[]
   diagram?: DiagramParams
-  isIncomplete?: boolean
   isUnderReview?: boolean
 }
 
 export function ContractsSection(props: ContractsSectionProps) {
   if (
-    props.contracts.length === 0 &&
-    Object.keys(props.nativeContracts).length === 0 &&
+    Object.keys(props.contracts).length === 0 &&
     props.escrows.length === 0 &&
     props.risks.length === 0 &&
     !props.isUnderReview
@@ -38,35 +32,19 @@ export function ContractsSection(props: ContractsSectionProps) {
     return null
   }
 
-  const [changedContracts, unchangedContracts] = partition(
-    props.contracts,
-    (c) => !!c.implementationChanged || !!c.highSeverityFieldChanged,
-  )
-
-  const paritionedNativeContracts = Object.fromEntries(
-    Object.entries(props.nativeContracts).map(([chainName, contracts]) => {
-      return [
-        chainName,
-        partition(
-          contracts,
-          (c) => c.implementationChanged || c.highSeverityFieldChanged,
-        ),
-      ]
+  const partitionedContracts = Object.fromEntries(
+    Object.entries(props.contracts).map(([chainName, contracts]) => {
+      return [chainName, partition(contracts, (c) => c.impactfulChange)]
     }),
   )
 
   const [changedEscrows, unchangedEscrows] = partition(
     props.escrows,
-    (c) => c.implementationChanged || c.highSeverityFieldChanged,
+    (c) => c.impactfulChange,
   )
-  const hasImplementationChanged = props.contracts.some(
-    (c) => !!c.implementationChanged,
+  const hasContractsChanged = Object.values(props.contracts).some((p) =>
+    p.some((c) => !!c.impactfulChange),
   )
-  const hasHighSeverityFieldChanged = props.contracts.some(
-    (c) => !!c.highSeverityFieldChanged,
-  )
-  const hasContractsChanged =
-    hasImplementationChanged || hasHighSeverityFieldChanged
 
   return (
     <ProjectSection
@@ -75,66 +53,33 @@ export function ContractsSection(props: ContractsSectionProps) {
       nested={props.nested}
       sectionOrder={props.sectionOrder}
       isUnderReview={props.isUnderReview}
-      includeChildrenIfUnderReview
     >
       {hasContractsChanged && <ContractsUpdated />}
-      {props.isIncomplete && <TechnologyIncompleteNote />}
       {props.diagram && (
         <figure className="mb-8 mt-4 text-center">
           <DiagramImage diagram={props.diagram} />
-          <figcaption className="text-xs text-gray-500 dark:text-gray-600">
+          <figcaption className="text-xs text-secondary">
             {props.diagram.caption}
           </figcaption>
         </figure>
       )}
-      {props.contracts.length > 0 && (
-        <>
-          <h3 className="font-bold">
-            The system consists of the following smart contracts on the host
-            chain ({props.chainName}):
-          </h3>
-          <div className="my-4">
-            {unchangedContracts.map((contract) => (
-              <ContractEntry
-                key={`${contract.name}-${contract.chain}`}
-                contract={contract}
-                className="my-4"
-                type="contract"
-              />
-            ))}
-            {changedContracts.length > 0 && (
-              <ImplementationHasChangedContracts
-                contracts={changedContracts}
-                hasImplementationChanged={hasImplementationChanged}
-                hasHighSeverityFieldChanged={hasHighSeverityFieldChanged}
-              />
-            )}
-          </div>
-        </>
-      )}
-      {Object.keys(paritionedNativeContracts).length > 0 &&
-        Object.entries(paritionedNativeContracts).map(
+      {Object.keys(partitionedContracts).length > 0 &&
+        Object.entries(partitionedContracts).map(
           ([chainName, [changedContracts, unchangedContracts]]) => {
             return (
-              <div key={chainName}>
-                <h3 className="font-bold">
-                  The system consists of the following smart contracts on{' '}
-                  {chainName}:
-                </h3>
+              <div key={chainName} className="mt-8">
+                <ChainNameHeader>{chainName}</ChainNameHeader>
                 <div className="my-4">
                   {unchangedContracts.map((contract) => (
                     <ContractEntry
-                      key={`${contract.name}-${contract.chain}`}
+                      key={technologyContractKey(contract)}
                       contract={contract}
                       className="my-4"
-                      type="contract"
                     />
                   ))}
                   {changedContracts.length > 0 && (
-                    <ImplementationHasChangedContracts
+                    <ContractsWithImpactfulChanges
                       contracts={changedContracts}
-                      hasImplementationChanged={hasImplementationChanged}
-                      hasHighSeverityFieldChanged={hasHighSeverityFieldChanged}
                     />
                   )}
                 </div>
@@ -146,26 +91,19 @@ export function ContractsSection(props: ContractsSectionProps) {
       {props.escrows.length > 0 && (
         <>
           <h3 className="font-bold">
-            Value Locked is calculated based on these smart contracts and
+            Value Secured is calculated based on these smart contracts and
             tokens:
           </h3>
           <div className="my-4">
             {unchangedEscrows.map((contract) => (
               <ContractEntry
-                key={`${contract.name}-${contract.chain}-${contract.addresses
-                  .map((a) => a.address)
-                  .join('-')}`}
+                key={technologyContractKey(contract)}
                 contract={contract}
                 className="my-4"
-                type="contract"
               />
             ))}
             {changedEscrows.length > 0 && (
-              <ImplementationHasChangedContracts
-                contracts={changedEscrows}
-                hasImplementationChanged={hasImplementationChanged}
-                hasHighSeverityFieldChanged={hasHighSeverityFieldChanged}
-              />
+              <ContractsWithImpactfulChanges contracts={changedEscrows} />
             )}
           </div>
         </>
@@ -178,47 +116,35 @@ export function ContractsSection(props: ContractsSectionProps) {
           <RiskList risks={props.risks} />
         </>
       )}
-      <ReferenceList references={props.references} />
     </ProjectSection>
   )
 }
 
-function ImplementationHasChangedContracts(props: {
-  contracts: TechnologyContract[]
-  hasImplementationChanged: boolean
-  hasHighSeverityFieldChanged: boolean
-}) {
+function ChainNameHeader(props: { children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-dashed border-yellow-200 px-4 py-3">
-      <div className="flex w-full items-center rounded bg-yellow-700/20 p-4">
-        {statusToText(props)}
-      </div>
-      {props.contracts.map((contract) => (
-        <ContractEntry
-          key={`${contract.name}-${contract.chain}`}
-          contract={contract}
-          className="my-4 p-0"
-          type="contract"
-        />
-      ))}
+    <div className="flex items-baseline gap-3">
+      <h3 className="whitespace-pre text-2xl font-bold">{props.children}</h3>
+      <div className="w-full border-b-2 border-divider" />
     </div>
   )
 }
 
-function statusToText({
-  hasImplementationChanged,
-  hasHighSeverityFieldChanged,
-}: {
-  hasImplementationChanged: boolean
-  hasHighSeverityFieldChanged: boolean
+function ContractsWithImpactfulChanges(props: {
+  contracts: TechnologyContract[]
 }) {
-  if (hasImplementationChanged && hasHighSeverityFieldChanged) {
-    return "There are changes to the following contracts' implementations and properties, and part of the information might be outdated."
-  }
-  if (hasImplementationChanged) {
-    return 'There are implementation changes and part of the information might be outdated.'
-  }
-  if (hasHighSeverityFieldChanged) {
-    return "There are changes to the following contracts' properties, and part of the information might be outdated."
-  }
+  return (
+    <div className="rounded-lg border border-dashed border-yellow-200 px-4 py-3">
+      <div className="flex w-full items-center rounded bg-yellow-700/20 p-4">
+        There are impactful changes to the following contracts, and part of the
+        information might be outdated.
+      </div>
+      {props.contracts.map((contract) => (
+        <ContractEntry
+          key={technologyContractKey(contract)}
+          contract={contract}
+          className="my-4 p-0"
+        />
+      ))}
+    </div>
+  )
 }

@@ -1,23 +1,23 @@
 import { Logger } from '@l2beat/backend-tools'
-import { Database } from '@l2beat/database'
-import { TrackedTxConfigEntry } from '@l2beat/shared'
+import type { Database } from '@l2beat/database'
+import type { TrackedTxConfigEntry } from '@l2beat/shared'
 import { EthereumAddress, UnixTime } from '@l2beat/shared-pure'
 import { ProjectId } from '@l2beat/shared-pure'
 import { expect, mockFn, mockObject } from 'earl'
 import { mockDatabase } from '../../test/database'
-import { IndexerService } from '../../tools/uif/IndexerService'
+import type { IndexerService } from '../../tools/uif/IndexerService'
 import { _TEST_ONLY_resetUniqueIds } from '../../tools/uif/ids'
 import { actual, removal } from '../../tools/uif/multi/test/mockConfigurations'
-import {
+import type {
   Configuration,
   RemovalConfiguration,
 } from '../../tools/uif/multi/types'
-import { TrackedTxsClient } from './TrackedTxsClient'
+import type { TrackedTxsClient } from './TrackedTxsClient'
 import { TrackedTxsIndexer } from './TrackedTxsIndexer'
-import { L2CostsUpdater } from './modules/l2-costs/L2CostsUpdater'
-import { LivenessUpdater } from './modules/liveness/LivenessUpdater'
-import { TxUpdaterInterface } from './types/TxUpdaterInterface'
-import { TrackedTxResult } from './types/model'
+import type { L2CostsUpdater } from './modules/l2-costs/L2CostsUpdater'
+import type { LivenessUpdater } from './modules/liveness/LivenessUpdater'
+import type { TxUpdaterInterface } from './types/TxUpdaterInterface'
+import type { TrackedTxResult } from './types/model'
 
 describe(TrackedTxsIndexer.name, () => {
   beforeEach(() => {
@@ -62,8 +62,8 @@ describe(TrackedTxsIndexer.name, () => {
       expect(trackedTxsClient.getData).toHaveBeenNthCalledWith(
         1,
         configurations,
-        new UnixTime(from),
-        new UnixTime(to),
+        UnixTime(from),
+        UnixTime(to),
       )
       expect(livenessUpdater.update).toHaveBeenNthCalledWith(
         1,
@@ -97,11 +97,7 @@ describe(TrackedTxsIndexer.name, () => {
         actual<TrackedTxConfigEntry>('a', 100, null, parameters),
       ]
 
-      const saveData = await indexer.multiUpdate(
-        from.toNumber(),
-        to.toNumber(),
-        configurations,
-      )
+      const saveData = await indexer.multiUpdate(from, to, configurations)
       const safeHeight = await saveData()
 
       expect(trackedTxsClient.getData).toHaveBeenNthCalledWith(
@@ -110,7 +106,7 @@ describe(TrackedTxsIndexer.name, () => {
         from,
         expected,
       )
-      expect(safeHeight).toEqual(expected.toNumber())
+      expect(safeHeight).toEqual(expected)
     })
   })
 
@@ -137,17 +133,17 @@ describe(TrackedTxsIndexer.name, () => {
 
       expect(
         l2CostRepository.deleteByConfigInTimeRange,
-      ).toHaveBeenNthCalledWith(1, 'a', new UnixTime(100), new UnixTime(200))
+      ).toHaveBeenNthCalledWith(1, 'a', UnixTime(100), UnixTime(200))
       expect(
         livenessRepository.deleteByConfigInTimeRange,
-      ).toHaveBeenNthCalledWith(1, 'a', new UnixTime(100), new UnixTime(200))
+      ).toHaveBeenNthCalledWith(1, 'a', UnixTime(100), UnixTime(200))
 
       expect(
         l2CostRepository.deleteByConfigInTimeRange,
-      ).toHaveBeenLastCalledWith('b', new UnixTime(200), new UnixTime(300))
+      ).toHaveBeenLastCalledWith('b', UnixTime(200), UnixTime(300))
       expect(
         livenessRepository.deleteByConfigInTimeRange,
-      ).toHaveBeenLastCalledWith('b', new UnixTime(200), new UnixTime(300))
+      ).toHaveBeenLastCalledWith('b', UnixTime(200), UnixTime(300))
     })
   })
 })

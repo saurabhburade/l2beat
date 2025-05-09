@@ -3,9 +3,9 @@ import { expect, mockFn, mockObject } from 'earl'
 
 import { readFileSync } from 'fs'
 import path from 'path'
-import { Database } from '@l2beat/database'
-import { BlobProvider, RpcClient } from '@l2beat/shared'
-import { L2Block } from '../types/BaseAnalyzer'
+import type { Database } from '@l2beat/database'
+import type { EthereumDaProvider, RpcClient } from '@l2beat/shared'
+import type { L2Block } from '../types/BaseAnalyzer'
 import { LineaT2IAnalyzer, blobFnName, lineaIface } from './LineaT2IAnalyzer'
 
 describe(LineaT2IAnalyzer.name, () => {
@@ -18,14 +18,12 @@ describe(LineaT2IAnalyzer.name, () => {
 
   describe(LineaT2IAnalyzer.prototype.analyze.name, () => {
     it('correctly decode and returns correct data for blob example', async () => {
-      const blobProvider = mockObject<BlobProvider>({
-        getBlobsByVersionedHashesAndBlockNumber: mockFn().resolvesTo({
-          blobs: [
-            {
-              ...blobData,
-            },
-          ],
-        }),
+      const ethereumDaProvider = mockObject<EthereumDaProvider>({
+        getBlobsByVersionedHashesAndBlockNumber: mockFn().resolvesTo([
+          {
+            ...blobData,
+          },
+        ]),
       })
       const provider = mockObject<RpcClient>({
         getTransaction: mockFn().resolvesTo({
@@ -36,12 +34,12 @@ describe(LineaT2IAnalyzer.name, () => {
       })
 
       const calculator = new LineaT2IAnalyzer(
-        blobProvider,
+        ethereumDaProvider,
         provider,
         mockObject<Database>(),
         ProjectId('linea'),
       )
-      const tx = { txHash: '0x121', timestamp: new UnixTime(1708352483) }
+      const tx = { txHash: '0x121', timestamp: UnixTime(1708352483) }
       const previousTx = tx // not used
       const results = await calculator.analyze(previousTx, tx)
 

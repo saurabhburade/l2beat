@@ -1,9 +1,8 @@
-import {
-  ContractFieldSeverity,
-  ContractParameters,
-} from '@l2beat/discovery-types'
-import { diff } from 'deep-diff'
+import { orderIndependentDiff } from 'deep-diff'
+import type { ContractValueType } from '../config/ColorConfig'
+import type { ContractFieldSeverity } from '../config/StructureConfig'
 import { normalizeDiffPath } from '../utils/normalizeDiffPath'
+import type { EntryParameters } from './types'
 
 export interface FieldDiff {
   key: string
@@ -11,14 +10,15 @@ export interface FieldDiff {
   after?: string
   severity?: ContractFieldSeverity
   description?: string
+  type?: ContractValueType[] | ContractValueType
 }
 
 export function diffContracts(
-  before: ContractParameters,
-  after: ContractParameters,
+  before: EntryParameters,
+  after: EntryParameters,
   ignore: string[],
 ): FieldDiff[] {
-  const differences = diff(before, after)
+  const differences = orderIndependentDiff(before, after)
 
   if (differences === undefined) {
     return []
@@ -76,5 +76,6 @@ export function diffContracts(
     ...entry,
     severity: after.fieldMeta?.[normalizeDiffPath(entry.key)]?.severity,
     description: after.fieldMeta?.[normalizeDiffPath(entry.key)]?.description,
+    type: after.fieldMeta?.[normalizeDiffPath(entry.key)]?.type,
   }))
 }

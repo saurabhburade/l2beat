@@ -1,5 +1,5 @@
-import { type UnixTime } from '@l2beat/shared-pure'
-import { type ChartUnit } from '~/components/chart/types'
+import type { UnixTime } from '@l2beat/shared-pure'
+import type { ChartUnit } from '~/components/chart/types'
 
 export type CostsUnit = ChartUnit | 'gas'
 
@@ -10,10 +10,11 @@ export interface LatestCostsProjectResponse {
   gas: LatestCostsValues
   eth: LatestCostsValues
   usd: LatestCostsValues
+  range: [UnixTime, UnixTime]
   syncedUntil: UnixTime
 }
 
-interface LatestCostsValues {
+export interface LatestCostsValues {
   overhead: number
   calldata: number
   compute: number

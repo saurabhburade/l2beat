@@ -1,6 +1,6 @@
 import { ethers } from 'ethers'
 import { decodeAbiParameters, parseAbiItem, parseAbiParameters } from 'viem'
-import { Method, Operation } from '../../types'
+import type { Method, Operation } from '../../types'
 import { defineMethod } from '../defineMethod'
 
 export const ERC4337_methods: Method[] = [
@@ -51,6 +51,30 @@ export const ERC4337_methods: Method[] = [
       })
     },
     'ERC-4337:EntryPoint0.7.0',
+  ),
+  defineMethod(
+    parseAbiItem(
+      'function handleOps((address sender, uint256 nonce, bytes initCode, bytes callData, bytes32 accountGasLimits, uint256 preVerificationGas, bytes32 gasFees, bytes paymasterAndData, bytes signature)[] calldata ops, address beneficiary)',
+    ),
+    ([ops]) => {
+      return ops.flatMap((op) => {
+        const operations: Operation[] = []
+        if (op.initCode && op.initCode !== '0x') {
+          operations.push({
+            type: 'static',
+            name: 'contract_deployment',
+            count: 1,
+          })
+        }
+        operations.push({
+          type: 'recursive',
+          calldata: op.callData,
+          to: op.sender,
+        })
+        return operations
+      })
+    },
+    'ERC-4337:EntryPoint0.8.0',
   ),
   defineMethod(
     parseAbiItem('function executeBatch(address[] addresses, bytes[] inputs)'),

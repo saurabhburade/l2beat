@@ -1,7 +1,7 @@
 import clsx from 'clsx'
-import { ComponentType, Fragment, ReactNode } from 'react'
+import { type ComponentType, Fragment, type ReactNode } from 'react'
 import { PanelHeader } from './PanelHeader'
-import { PanelId, useMultiViewStore } from './store'
+import { type PanelId, useMultiViewStore } from './store'
 
 export function Panel(props: {
   id: PanelId
@@ -16,7 +16,7 @@ export function Panel(props: {
   return (
     <div
       className={clsx(
-        'flex flex-col border-coffee-600 border-r',
+        'flex flex-col border-coffee-600 md:border-r',
         hidden && 'hidden',
       )}
       id={`panel-${props.id}`}

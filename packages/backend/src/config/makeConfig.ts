@@ -1,25 +1,17 @@
-import { Env } from '@l2beat/backend-tools'
-import {
-  bridgeToBackendProject,
-  bridges,
-  chains,
-  layer2ToBackendProject,
-  layer2s,
-} from '@l2beat/config'
-import { ConfigReader } from '@l2beat/discovery'
-import { ChainId, UnixTime } from '@l2beat/shared-pure'
-
-import { Config, DiscordConfig } from './Config'
+import type { Env } from '@l2beat/backend-tools'
+import { type ChainConfig, ProjectService } from '@l2beat/config'
+import type { UnixTime } from '@l2beat/shared-pure'
+import type { Config } from './Config'
 import { FeatureFlags } from './FeatureFlags'
 import { getChainConfig } from './chain/getChainConfig'
-import {
-  getChainActivityBlockExplorerConfig,
-  getChainActivityConfig,
-  getProjectsWithActivity,
-} from './features/activity'
-import { getFinalityConfigurations } from './features/finality'
-import { getTvlConfig } from './features/tvl'
-import { getChainDiscoveryConfig } from './features/updateMonitor'
+import { getActivityConfig } from './features/activity'
+import { getDaTrackingConfig } from './features/da'
+import { getDaBeatConfig } from './features/dabeat'
+import { getFinalityConfig } from './features/finality'
+import { getTrackedTxsConfig } from './features/trackedTxs'
+import { getTvsConfig } from './features/tvs'
+import { getUpdateMonitorConfig } from './features/updateMonitor'
+import { getVerifiersConfig } from './features/verifiers'
 import { getGitCommitHash } from './getGitCommitHash'
 
 interface MakeConfigOptions {
@@ -28,15 +20,19 @@ interface MakeConfigOptions {
   minTimestampOverride?: UnixTime
 }
 
-export function makeConfig(
+export async function makeConfig(
   env: Env,
   { name, isLocal, minTimestampOverride }: MakeConfigOptions,
-): Config {
+): Promise<Config> {
+  const ps = new ProjectService()
+
   const flags = new FeatureFlags(
     env.string('FEATURES', isLocal ? '' : '*'),
   ).append('status')
-  const tvlConfig = getTvlConfig(flags, env, minTimestampOverride)
 
+  const chains = (await ps.getProjects({ select: ['chainConfig'] })).map(
+    (p) => p.chainConfig,
+  )
   const isReadonly = env.boolean(
     'READONLY',
     // if we connect locally to production db, we want to be readonly!
@@ -46,11 +42,9 @@ export function makeConfig(
   return {
     name,
     isReadonly,
-    projects: layer2s
-      .map(layer2ToBackendProject)
-      .concat(bridges.map(bridgeToBackendProject)),
     clock: {
-      minBlockTimestamp: minTimestampOverride ?? getEthereumMinTimestamp(),
+      minBlockTimestamp:
+        minTimestampOverride ?? getEthereumMinTimestamp(chains),
       safeTimeOffsetSeconds: 60 * 60,
       hourlyCutoffDays: 7,
       sixHourlyCutoffDays: 90,
@@ -78,13 +72,13 @@ export function makeConfig(
           enableQueryLogging: env.boolean('ENABLE_QUERY_LOGGING', false),
           connection: {
             connectionString: env.string('DATABASE_URL'),
-            application_name: 'BE-PROD',
+            application_name: env.string('DATABASE_APP_NAME', 'BE-PROD'),
             ssl: { rejectUnauthorized: false },
           },
           connectionPoolSize: {
             // our heroku plan allows us for up to 400 open connections
             min: 20,
-            max: 200,
+            max: env.integer('DATABASE_MAX_POOL_SIZE', 200),
           },
           isReadonly,
         },
@@ -92,7 +86,7 @@ export function makeConfig(
     api: {
       port: env.integer('PORT', isLocal ? 3000 : undefined),
       cache: {
-        tvl: flags.isEnabled('cache', 'tvl'),
+        tvs: flags.isEnabled('cache', 'tvs'),
         liveness: flags.isEnabled('cache', 'liveness'),
         verifiers: flags.isEnabled('cache', 'verifiers'),
       },
@@ -108,105 +102,33 @@ export function makeConfig(
           user: env.string('METRICS_AUTH_USER'),
           pass: env.string('METRICS_AUTH_PASS'),
         },
-    tvl: flags.isEnabled('tvl') && tvlConfig,
-    trackedTxsConfig: flags.isEnabled('tracked-txs') && {
-      bigQuery: {
-        clientEmail: env.string('BIGQUERY_CLIENT_EMAIL'),
-        privateKey: env.string('BIGQUERY_PRIVATE_KEY').replace(/\\n/g, '\n'),
-        projectId: env.string('BIGQUERY_PROJECT_ID'),
-      },
-      // TODO: figure out how to set it for local development
-      minTimestamp: UnixTime.fromDate(new Date('2023-05-01T00:00:00Z')),
-      uses: {
-        liveness: flags.isEnabled('tracked-txs', 'liveness'),
-        l2costs: flags.isEnabled('tracked-txs', 'l2costs') && {
-          aggregatorEnabled: flags.isEnabled(
-            'tracked-txs',
-            'l2costs',
-            'aggregator',
-          ),
-        },
-      },
-    },
-    finality: flags.isEnabled('finality') && {
-      configurations: getFinalityConfigurations(flags, env),
-    },
-    activity: flags.isEnabled('activity') && {
-      starkexApiKey: env.string([
-        'STARKEX_API_KEY_FOR_ACTIVITY',
-        'STARKEX_API_KEY',
-      ]),
-      starkexCallsPerMinute: env.integer(
-        [
-          'STARKEX_API_CALLS_PER_MINUTE_FOR_ACTIVITY',
-          'STARKEX_API_CALLS_PER_MINUTE',
-        ],
-        600,
-      ),
-      projectsExcludedFromAPI:
-        env.optionalString('ACTIVITY_PROJECTS_EXCLUDED_FROM_API')?.split(' ') ??
-        [],
-      projects: getProjectsWithActivity()
-        .filter((x) => flags.isEnabled('activity', x.id.toString()))
-        .map((x) => ({
-          id: x.id,
-          config: getChainActivityConfig(env, x),
-          blockExplorerConfig: getChainActivityBlockExplorerConfig(env, x),
-        })),
-    },
-    verifiers: flags.isEnabled('verifiers'),
+    tvs:
+      flags.isEnabled('tvs') &&
+      (await getTvsConfig(
+        ps,
+        flags,
+        env.optionalInteger('TVS_SINCE_TIMESTAMP'),
+      )),
+    trackedTxsConfig:
+      flags.isEnabled('tracked-txs') &&
+      (await getTrackedTxsConfig(ps, env, flags)),
+    finality:
+      flags.isEnabled('finality') && (await getFinalityConfig(ps, env, flags)),
+    activity:
+      flags.isEnabled('activity') && (await getActivityConfig(ps, env, flags)),
+    verifiers: flags.isEnabled('verifiers') && (await getVerifiersConfig(ps)),
     lzOAppsEnabled: flags.isEnabled('lzOApps'),
     statusEnabled: flags.isEnabled('status'),
-    updateMonitor: flags.isEnabled('updateMonitor') && {
-      runOnStart: isLocal
-        ? env.boolean('UPDATE_MONITOR_RUN_ON_START', true)
-        : undefined,
-      discord: getDiscordConfig(env, isLocal),
-      chains: new ConfigReader()
-        .readAllChains()
-        .filter((chain) => flags.isEnabled('updateMonitor', chain))
-        .map((chain) => getChainDiscoveryConfig(env, chain)),
-      enableCache: env.optionalBoolean(['DISCOVERY_CACHE_ENABLED']),
-    },
+    updateMonitor:
+      flags.isEnabled('updateMonitor') &&
+      getUpdateMonitorConfig(env, flags, chains, isLocal),
     implementationChangeReporterEnabled: flags.isEnabled(
       'implementationChangeReporter',
     ),
     flatSourceModuleEnabled: flags.isEnabled('flatSourcesModule'),
-    chains: chains.map((x) => ({ name: x.name, chainId: ChainId(x.chainId) })),
-
-    daBeat: flags.isEnabled('da-beat') && {
-      quicknodeApiUrl: env.string([
-        'QUICKNODE_API_URL_FOR_DA_BEAT',
-        'QUICKNODE_API_URL',
-      ]),
-      quicknodeCallsPerMinute: env.integer(
-        [
-          'QUICKNODE_API_CALLS_PER_MINUTE_FOR_DA_BEAT',
-          'QUICKNODE_API_CALLS_PER_MINUTE',
-        ],
-        600,
-      ),
-      celestiaApiUrl: env.string([
-        'CELESTIA_API_URL_FOR_DA_BEAT',
-        'CELESTIA_API_URL',
-      ]),
-      celestiaCallsPerMinute: env.integer(
-        [
-          'CELESTIA_API_CALLS_PER_MINUTE_FOR_DA_BEAT',
-          'CELESTIA_API_CALLS_PER_MINUTE',
-        ],
-        600,
-      ),
-      nearRpcUrl: env.string(
-        ['NEAR_RPC_URL_FOR_DA_BEAT', 'NEAR_RPC_URL'],
-        'https://rpc.mainnet.near.org/',
-      ),
-      availWsUrl: env.string(
-        ['AVAIL_WS_URL_FOR_DA_BEAT', 'AVAIL_WS_URL'],
-        'wss://avail-mainnet.public.blastapi.io/',
-      ),
-    },
-    chainConfig: getChainConfig(env),
+    chains: chains.map((x) => ({ name: x.name, chainId: x.chainId })),
+    daBeat: flags.isEnabled('da-beat') && (await getDaBeatConfig(ps, env)),
+    chainConfig: await getChainConfig(ps, env),
     beaconApi: {
       url: env.optionalString([
         'ETHEREUM_BEACON_API_URL_FOR_FINALITY',
@@ -227,35 +149,18 @@ export function makeConfig(
         10000,
       ),
     },
+    da: flags.isEnabled('da') && (await getDaTrackingConfig(ps, env)),
     // Must be last
     flags: flags.getResolved(),
   }
 }
 
-function getEthereumMinTimestamp() {
+function getEthereumMinTimestamp(chains: ChainConfig[]) {
   const minBlockTimestamp = chains.find(
     (c) => c.name === 'ethereum',
-  )?.minTimestampForTvl
+  )?.sinceTimestamp
   if (!minBlockTimestamp) {
     throw new Error('Missing minBlockTimestamp for ethereum')
   }
   return minBlockTimestamp
-}
-
-function getDiscordConfig(env: Env, isLocal?: boolean): DiscordConfig | false {
-  const token = env.optionalString('DISCORD_TOKEN')
-  const internalChannelId = env.optionalString('INTERNAL_DISCORD_CHANNEL_ID')
-  const publicChannelId = env.optionalString('PUBLIC_DISCORD_CHANNEL_ID')
-
-  const discordEnabled =
-    !!token && !!internalChannelId && (isLocal || !!publicChannelId)
-
-  return (
-    discordEnabled && {
-      token,
-      publicChannelId,
-      internalChannelId,
-      callsPerMinute: 3000,
-    }
-  )
 }

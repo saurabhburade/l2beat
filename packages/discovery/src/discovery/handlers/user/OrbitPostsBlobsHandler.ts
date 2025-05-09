@@ -1,10 +1,10 @@
-import { EthereumAddress } from '@l2beat/shared-pure'
-import { providers, utils } from 'ethers'
+import type { EthereumAddress } from '@l2beat/shared-pure'
+import { type providers, utils } from 'ethers'
 import * as z from 'zod'
 
-import { IProvider } from '../../provider/IProvider'
+import type { IProvider } from '../../provider/IProvider'
 import { rpcWithRetries } from '../../provider/LowLevelProvider'
-import { Handler, HandlerResult } from '../Handler'
+import type { Handler, HandlerResult } from '../Handler'
 
 export type OrbitPostsBlobsDefinition = z.infer<
   typeof OrbitPostsBlobsDefinition
@@ -66,18 +66,14 @@ export class OrbitPostsBlobsHandler implements Handler {
             0,
             currentBlockNumber - blockStep * multiplier,
           )
-          return await rpcWithRetries(
-            async () => {
-              return await eventProvider.getLogs({
-                address: address.toString(),
-                topics: [abi.getEventTopic('SequencerBatchDelivered')],
-                fromBlock,
-                toBlock: currentBlockNumber,
-              })
-            },
-            () =>
-              `getLogs ${address.toString()} ${fromBlock} - ${currentBlockNumber}`,
-          )
+          return await rpcWithRetries(async () => {
+            return await eventProvider.getLogs({
+              address: address.toString(),
+              topics: [abi.getEventTopic('SequencerBatchDelivered')],
+              fromBlock,
+              toBlock: currentBlockNumber,
+            })
+          }, `getLogs ${address.toString()} ${fromBlock} - ${currentBlockNumber}`)
         },
       )
       currentBlockNumber -= blockStep * multiplier

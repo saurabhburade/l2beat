@@ -1,12 +1,13 @@
-import { EthereumAddress, Hash256 } from '@l2beat/shared-pure'
+import { EthereumAddress, type Hash256 } from '@l2beat/shared-pure'
 import { utils } from 'ethers'
 import * as z from 'zod'
 
-import { ContractValue, get$Implementations } from '@l2beat/discovery-types'
-import { uniqBy } from 'lodash'
-import { IProvider } from '../../provider/IProvider'
+import uniqBy from 'lodash/uniqBy'
+import type { ContractValue } from '../../output/types'
+import type { IProvider } from '../../provider/IProvider'
 import { ProxyDetector } from '../../proxies/ProxyDetector'
-import { Handler, HandlerResult } from '../Handler'
+import { get$Implementations } from '../../utils/extractors'
+import type { Handler, HandlerResult } from '../Handler'
 import { toContractValue } from '../utils/toContractValue'
 
 export type ZKsyncEraScheduledTransactionsHandlerDefinition = z.infer<
@@ -122,7 +123,7 @@ export class ZKsyncEraScheduledTransactionHandler implements Handler {
     return parsed.map(
       (entry) =>
         ({
-          delay: entry.parsedLog.args.delay.toNumber(),
+          delay: entry.parsedLog.args.delay,
           operation: entry.parsedLog.args[1],
         }) satisfies ScheduledShadow,
     )
@@ -143,7 +144,7 @@ export class ZKsyncEraScheduledTransactionHandler implements Handler {
       parsed.map(
         async (entry) =>
           ({
-            delay: entry.parsedLog.args.delay.toNumber(),
+            delay: entry.parsedLog.args.delay,
             operation: await this.decodeOperation(
               provider,
               entry.blockNumber,

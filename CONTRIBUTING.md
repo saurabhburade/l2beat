@@ -24,10 +24,14 @@ To do any development work, even simple config changes you probably want to have
 locally. To install dependencies do the following.
 
 1. Install [node.js](https://nodejs.org/en/) version 18. To easily manage node versions we recommend
-   [fnm](https://github.com/Schniz/fnm)
-2. Install [pnpm](https://pnpm.io/installation#using-corepack), preferably using Corepack
+   [fnm](https://github.com/Schniz/fnm).
+2. In the repository root, run `node --version > .node-version` to set the node version. Please do not commit this file.
+3. Install [pnpm](https://pnpm.io/installation#using-corepack), preferably using Corepack
    `corepack enable pnpm`
-3. In the repository root run `pnpm install` to install project specific dependencies
+4. In the repository root, run `pnpm install` to install project specific dependencies.
+5. In the repository root, run `pnpm build:dependencies` to build the dependencies.
+
+Please note that you will want to run `pnpm install` after you perform a `git pull` on your cloned repository. You may also need to run `pnpm build:dependencies` if new dependencies have been added. Failure to do this may result in errors that are difficult to diagnose.
 
 ## Running the website locally
 
@@ -41,6 +45,18 @@ pnpm build:dependencies
 cd packages/frontend
 pnpm dev:mock
 ```
+
+Once you have the frontend website running, you will probably wish to explore the `discovery` tool described in its [README](packages/discovery/README.md).
+
+To explore the projects currently tracked, see the TypeScript files under [packages/config/src/projects](packages/config/src/projects).
+
+The website will be available on http://localhost:3000/
+
+## Running the website with data
+
+Running the website with data requires a database. Setting up that database is complicated and underdocumented for the moment. Please raise an issue or contact L2Beat support if you require assistance.
+
+If you are a member of the L2Beat organization on GitHub, opening a pull request will prompt [vercel](https://vercel.com) to run a container including live data. Vercel will comment on your PR with the container's URL. NB: Vercel's post-commit hook will also respond to _draft_ PRs so you may wish to use a draft PR to avoid spamming administrators until you are ready for their review.
 
 ## Add tokens to a project
 
@@ -57,55 +73,37 @@ General token prerequisites (without these your token CANNOT be added):
 2. Add your token to the list (`packages/config/src/tokens/tokens.jsonc`). The order of the tokens should be kept alphabetical.
 3. Run `pnpm tokens` in the `packages/config/` directory.
 
-Refer to the [docs - tvl.md](docs/tvl.md) for further token insights.
+Refer to the [docs - tvs.md](docs/tvs.md) for further token insights.
 
-## Add your Layer 2 project to the website
+## Add your project to the website
 
-If you want to add a new Layer 2 project you can do that by opening a PR. To do this you need to:
+If you want to add a new project you can do that by opening a PR. To do this you need to:
 
-1. Read the specification in `packages/config/src/projects/layer2s/types/Layer2.ts`. It contains an annotated
-   data format for the project definition.
-2. Add a .ts file to describe your project inside `packages/config/src/projects/layer2s`. You can use the
-   existing projects and templates (e.g. OP stack and Orbit stack templates in `packages/config/src/projects/layer2s/templates/`) as reference.
-3. Add your project into `packages/config/src/projects/layer2s/index.ts`. The order of the projects should be
-   kept alphabetical.
+1. Read the specification in `packages/config/src/internalTypes.ts`. It
+   contains an annotated data format for the project definition.
+2. Add a directory to describe your project inside
+   `packages/config/src/projects`. You can use the existing projects and
+   templates (e.g. OP stack and Orbit stack templates in
+   `packages/config/src/templates/`) as reference.
+3. Add your project into `packages/config/src/processing/layer2s.ts` or
+   `packages/config/src/processing/layer3s.ts`. The order of the projects
+   should be kept alphabetical.
 4. Add a square PNG project icon with a minimum size of 128x128 pixels to
-   `packages/frontend/public/icons`. From the `packages/frontend` directory run `pnpm tinify-logos` afterwards to reduce its size.
+   `packages/frontend/public/icons`. From the `packages/frontend` directory run
+   `pnpm tinify-logos` afterwards to reduce its size.
 5. Run the website locally to check out your changes. (optional, see above)
 6. Make sure that things like linting, formatting and tests are all passing. To
-   check their status you can run `pnpm lint:fix`, `pnpm format:fix` or `pnpm test`
-   respectively. We greatly encourage doing this before the last step as it
-   shortens the amount of time needed for your project to be added.
+   check their status you can run `pnpm lint:fix`, `pnpm format:fix` or `pnpm
+   test` respectively. We greatly encourage doing this before the last step as
+   it shortens the amount of time needed for your project to be added.
 7. Open a PR :D
 8. If your changes contain any errors we might want to fix them ourselves. To
-   make this as easy as possible please enable **"Allow edits by maintainers"**.
-   Otherwise the latency before we can merge a PR greatly increases.
+   make this as easy as possible please enable **"Allow edits by
+   maintainers"**. Otherwise the latency before we can merge a PR greatly
+   increases.
 
 Adding a new project in this way will automatically update both the data fetching logic as well as
 the frontend.
-
-## Add your Layer 3 project to the website
-
-If you want to add a new Layer 3 project you can do that by opening a PR. To do this you need to:
-
-1. Read the specification in `packages/config/src/projects/layer3s/types/Layer3.ts`. It contains an annotated
-   data format for the project definition.
-2. Add a .ts file to describe your project inside `packages/config/src/projects/layer3s`. You can use the
-   existing projects and templates (e.g. OP stack and Orbit stack templates in `packages/config/src/projects/layer2s/templates/`) as reference. Remember to specify host chain on which your project is based on.
-   Take `projectId` of host chian and add it to `hostChain` property.
-3. Add your project to `packages/config/src/projects/layer3s/index.ts`. The order of the projects should be
-   kept alphabetical.
-4. Add a square PNG project icon with a minimum size of 128x128 pixels into
-   packages/frontend/src/static/icons. From the `packages/frontend` directory
-   run `pnpm tinify-logos` afterwards to reduce its size.
-6. Make sure that things like linting, formatting and tests are all passing. To
-   check their status you can run `pnpm lint:fix`, `pnpm format:fix` or `pnpm test`
-   respectively. We greatly encourage doing this before the last step as it
-   shortens the amount of time needed for your project to be added.
-7. Open a PR :D
-8. If your changes contain any errors we might want to fix them ourselves. To
-   make this as easy as possible please enable **"Allow edits by maintainers"**.
-   Otherwise the latency before we can merge a PR greatly increases.
 
 ## Contribute research
 

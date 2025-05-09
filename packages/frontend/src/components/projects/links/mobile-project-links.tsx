@@ -9,33 +9,41 @@ import { SocialIcon } from '~/icons/products/social-icon'
 import { cn } from '~/utils/cn'
 import { formatLink } from '~/utils/format-link'
 import { parseSocial } from './parse-social'
-import { type ProjectLink } from './types'
+import type { ProjectLink } from './types'
+
+interface Props {
+  projectLinks: ProjectLink[]
+  className?: string
+  triggerClassName?: string
+}
 
 export function MobileProjectLinks({
   projectLinks,
-}: { projectLinks: ProjectLink[] }) {
+  className,
+  triggerClassName,
+}: Props) {
   return (
-    <Accordion type="single" collapsible={true}>
+    <Accordion type="single" collapsible={true} className={className}>
       <AccordionItem value="links">
-        <AccordionTrigger className="py-4">
+        <AccordionTrigger className={cn('py-4', triggerClassName)}>
           <span className="font-bold">
             Links:{' '}
-            <span className="ml-2 font-medium text-gray-600">
+            <span className="ml-2 font-medium text-secondary">
               Website, Docs, etc.
             </span>
           </span>
         </AccordionTrigger>
-        <AccordionContent>
+        <AccordionContent className="py-2">
           <table className="w-full table-fixed border-collapse text-left text-xs">
             <tbody>
               {projectLinks.map(({ name, links }, i) => (
                 <tr
-                  className="border-t border-gray-300 first:border-none dark:border-gray-850"
+                  className="border-t border-divider first:border-none"
                   key={i}
                 >
                   <th
                     className={cn(
-                      'w-[110px] py-3 align-top font-medium text-gray-500 dark:text-gray-550',
+                      'w-[110px] py-3 align-top font-medium text-secondary',
                       i === 0 && 'pt-0',
                     )}
                   >

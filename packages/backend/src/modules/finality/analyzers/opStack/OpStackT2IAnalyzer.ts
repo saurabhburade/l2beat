@@ -1,14 +1,22 @@
-import { Logger } from '@l2beat/backend-tools'
-import { assert, ProjectId, TrackedTxsConfigSubtype } from '@l2beat/shared-pure'
+import type { Logger } from '@l2beat/backend-tools'
+import {
+  assert,
+  type ProjectId,
+  type TrackedTxsConfigSubtype,
+} from '@l2beat/shared-pure'
 
-import { Database } from '@l2beat/database'
-import { BlobProvider, EVMTransaction, RpcClient } from '@l2beat/shared'
+import type { Database } from '@l2beat/database'
+import type {
+  EVMTransaction,
+  EthereumDaProvider,
+  RpcClient,
+} from '@l2beat/shared'
 import { byteArrFromHexStr } from '../../utils/byteArrFromHexStr'
 import { BaseAnalyzer } from '../types/BaseAnalyzer'
 import type { L2Block, Transaction } from '../types/BaseAnalyzer'
 import { ChannelBank } from './ChannelBank'
 import { getRollupData } from './blobToData'
-import { SpanBatchDecoderOpts, decodeBatch } from './decodeBatch'
+import { type SpanBatchDecoderOpts, decodeBatch } from './decodeBatch'
 import { getFrames } from './getFrames'
 import { getBatchFromChannel } from './utils'
 
@@ -16,7 +24,7 @@ export class OpStackT2IAnalyzer extends BaseAnalyzer {
   private readonly channelBank: ChannelBank
 
   constructor(
-    private readonly blobProvider: BlobProvider,
+    private readonly ethereumDaProvider: EthereumDaProvider,
     private readonly logger: Logger,
     provider: RpcClient,
     db: Database,
@@ -92,6 +100,9 @@ export class OpStackT2IAnalyzer extends BaseAnalyzer {
   async getRollupData(tx: EVMTransaction): Promise<Uint8Array[]> {
     switch (Number(tx.type)) {
       case 2:
+        if (tx.data === '0x') {
+          return []
+        }
         return [byteArrFromHexStr(tx.data)]
       case 3: {
         assert(
@@ -99,12 +110,16 @@ export class OpStackT2IAnalyzer extends BaseAnalyzer {
           'Type 3 transaction missing blobVersionedHashes',
         )
         assert(tx.blockNumber, `Tx ${tx}: No pending txs allowed`)
-        const { blobs } =
-          await this.blobProvider.getBlobsByVersionedHashesAndBlockNumber(
+        const blobs =
+          await this.ethereumDaProvider.getBlobsByVersionedHashesAndBlockNumber(
             tx.blobVersionedHashes,
             tx.blockNumber,
           )
         if (blobs.length === 0) return []
+        const data = getRollupData(blobs)
+        if (Number(data.toString()) === 0) {
+          return []
+        }
         return getRollupData(blobs)
       }
       default:

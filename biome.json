@@ -67,7 +67,8 @@
         "noNamespace": "error",
         "noNonNullAssertion": "error",
         "useAsConstAssertion": "error",
-        "useLiteralEnumMembers": "error"
+        "useLiteralEnumMembers": "error",
+        "useImportType": "error"
       },
       "performance": {
         "noAccumulatingSpread": "error",
@@ -82,7 +83,8 @@
               "console": "Do not use console",
               "node:console": "Do not use console",
               "assert": "Use assert from @l2beat/shared-pure",
-              "node:assert": "Use assert from @l2beat/shared-pure"
+              "node:assert": "Use assert from @l2beat/shared-pure",
+              "lodash": "Use lodash/{module}"
             }
           }
         },

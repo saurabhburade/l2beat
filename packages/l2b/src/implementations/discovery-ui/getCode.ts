@@ -1,17 +1,33 @@
 import { readFileSync, readdirSync } from 'fs'
 import { join } from 'path'
-import { ConfigReader } from '@l2beat/discovery'
-import { get$Implementations } from '@l2beat/discovery-types'
-import { getChainFullName } from '@l2beat/discovery/dist/config/config.discovery'
-import { ApiCodeResponse } from './types'
+import {
+  type ConfigReader,
+  type DiscoveryPaths,
+  get$Implementations,
+  getChainFullName,
+  getChainShortName,
+} from '@l2beat/discovery'
+import {
+  getAllProjectDiscoveries,
+  getProjectDiscoveries,
+} from './getDiscoveries'
+import type { ApiCodeResponse } from './types'
 
 export function getCode(
+  paths: DiscoveryPaths,
   configReader: ConfigReader,
   project: string,
   address: string,
 ): ApiCodeResponse {
-  const codePaths = getCodePaths(configReader, project, address)
+  const { entryName, codePaths } = getCodePaths(
+    paths,
+    configReader,
+    project,
+    address,
+  )
+
   return {
+    entryName,
     sources: codePaths
       .map(({ name, path }) => ({
         name: name,
@@ -21,39 +37,99 @@ export function getCode(
   }
 }
 
+export function getAllCode(
+  paths: DiscoveryPaths,
+  configReader: ConfigReader,
+  project: string,
+): Record<string, ApiCodeResponse> {
+  const result: Record<string, ApiCodeResponse> = {}
+  const discoveries = getAllProjectDiscoveries(configReader, project)
+
+  // Get all unique addresses across all chains
+  const allAddresses = discoveries.flatMap((discovery) =>
+    discovery.entries
+      .filter((e) => e.type === 'Contract')
+      .map((entry) => ({
+        chain: getChainShortName(discovery.chain),
+        address: entry.address,
+      })),
+  )
+
+  for (const { chain, address } of allAddresses) {
+    const fullAddress = `${chain}:${address}`
+    try {
+      const { entryName, codePaths } = getCodePaths(
+        paths,
+        configReader,
+        project,
+        fullAddress,
+      )
+      result[fullAddress] = {
+        entryName,
+        sources: codePaths
+          .map(({ name: fileName, path }) => ({
+            name: fileName,
+            code: readFileSync(path, 'utf-8'),
+          }))
+          .sort((a, b) => compareFiles(a.name, b.name)),
+      }
+    } catch (error) {
+      console.error(`Failed to get code for address ${fullAddress}`, error)
+    }
+  }
+
+  return result
+}
+
 export function getCodePaths(
+  paths: DiscoveryPaths,
   configReader: ConfigReader,
   project: string,
   address: string,
-): { name: string; path: string }[] {
+): {
+  entryName: string | undefined
+  codePaths: { name: string; path: string }[]
+} {
   const [chainShortName, simpleAddress] = address.split(':')
   const chain = getChainFullName(chainShortName)
-  const discovery = configReader.readDiscovery(project, chain)
-  const contract = discovery.contracts.find((x) => x.address === simpleAddress)
-  if (!contract) {
-    return []
+  const discoveries = getProjectDiscoveries(configReader, project, chain)
+
+  for (const discovery of discoveries) {
+    const entry = discovery.entries.find((x) => x.address === simpleAddress)
+    if (!entry) {
+      continue
+    }
+
+    const similar = discovery.entries.filter((x) => x.name === entry.name)
+    const hasImplementations = get$Implementations(entry.values).length > 0
+
+    const name =
+      similar.length > 1 ? `${entry.name}-${entry.address}` : `${entry.name}`
+    const root = join(paths.discovery, discovery.name, chain, '.flat')
+
+    if (!hasImplementations) {
+      return {
+        entryName: entry.name,
+        codePaths: [
+          { name: `${entry.name}.sol`, path: join(root, name + '.sol') },
+        ],
+      }
+    } else {
+      const dir = readdirSync(join(root, name))
+      const codePaths = dir
+        .map((file) => ({
+          name: file,
+          path: join(root, name, file),
+        }))
+        .sort((a, b) => compareFiles(a.name, b.name))
+      return {
+        entryName: entry.name,
+        codePaths,
+      }
+    }
   }
 
-  const similar = discovery.contracts.filter((x) => x.name === contract.name)
-  const hasImplementations = get$Implementations(contract.values).length > 0
-
-  const name =
-    similar.length > 1
-      ? `${contract.name}-${contract.address}`
-      : `${contract.name}`
-  const root = join(configReader.rootPath, 'discovery', project, chain, '.flat')
-
-  if (!hasImplementations) {
-    return [{ name: `${contract.name}.sol`, path: join(root, name + '.sol') }]
-  } else {
-    const dir = readdirSync(join(root, name))
-    return dir
-      .map((file) => ({
-        name: file,
-        path: join(root, name, file),
-      }))
-      .sort((a, b) => compareFiles(a.name, b.name))
-  }
+  return { entryName: undefined, codePaths: [] }
 }
 
 function compareFiles(a: string, b: string) {

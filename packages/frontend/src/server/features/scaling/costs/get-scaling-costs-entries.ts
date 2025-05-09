@@ -1,46 +1,59 @@
-import { type Layer2 } from '@l2beat/config'
-import { groupByTabs } from '~/utils/group-by-tabs'
+import type { Project, WarningWithSentiment } from '@l2beat/config'
+import { groupByScalingTabs } from '~/app/(side-nav)/scaling/_utils/group-by-scaling-tabs'
+import { ps } from '~/server/projects'
+import { api } from '~/trpc/server'
 import {
   type ProjectChanges,
   getProjectsChangeReport,
 } from '../../projects-change-report/get-projects-change-report'
-import { getCommonScalingEntry } from '../get-common-scaling-entry'
 import {
-  type ProjectsLatestTvlUsd,
-  getProjectsLatestTvlUsd,
-} from '../tvl/utils/get-latest-tvl-usd'
-import { compareStageAndTvl } from '../utils/compare-stage-and-tvl'
-import { getCostsProjects } from './utils/get-costs-projects'
+  type CommonScalingEntry,
+  getCommonScalingEntry,
+} from '../get-common-scaling-entry'
+import type { CostsTableData } from './get-costs-table-data'
+import { compareStageAndCost } from './utils/compare-stage-and-cost'
 
 export async function getScalingCostsEntries() {
-  const [tvl, projectsChangeReport] = await Promise.all([
-    getProjectsLatestTvlUsd(),
+  const [projectsChangeReport, projects, costs] = await Promise.all([
     getProjectsChangeReport(),
+    ps.getProjects({
+      select: ['statuses', 'scalingInfo', 'costsInfo', 'display'],
+      where: ['isScaling'],
+      whereNot: ['isUpcoming', 'archivedAt'],
+    }),
+    api.costs.table({ range: '30d' }),
   ])
-  const projects = getCostsProjects()
 
   const entries = projects
     .map((project) =>
       getScalingCostEntry(
         project,
         projectsChangeReport.getChanges(project.id),
-        tvl,
+        costs[project.id],
       ),
     )
-    .sort(compareStageAndTvl)
-  return groupByTabs(entries)
+    .sort(compareStageAndCost)
+  return groupByScalingTabs(entries)
 }
 
-export type ScalingCostsEntry = ReturnType<typeof getScalingCostEntry>
+export interface ScalingCostsEntry extends CommonScalingEntry {
+  costsWarning: WarningWithSentiment | undefined
+  costOrder: number
+}
+
 function getScalingCostEntry(
-  project: Layer2,
+  project: Project<'statuses' | 'scalingInfo' | 'costsInfo' | 'display'>,
   changes: ProjectChanges,
-  tvl: ProjectsLatestTvlUsd,
-) {
+  costs: CostsTableData[string] | undefined,
+): ScalingCostsEntry {
+  const costPerUop =
+    costs?.uopsCount && costs.usd.total
+      ? costs.usd.total / costs.uopsCount
+      : Infinity
+
   return {
-    ...getCommonScalingEntry({ project, changes, syncStatus: undefined }),
-    href: `/scaling/projects/${project.display.slug}#onchain-costs`,
-    costsWarning: project.display.costsWarning,
-    tvlOrder: tvl[project.id] ?? 0,
+    ...getCommonScalingEntry({ project, changes }),
+    costsWarning: project.costsInfo.warning,
+    costOrder: costPerUop,
   }
 }

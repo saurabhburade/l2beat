@@ -1,26 +1,34 @@
-import { DiscoveryOutput } from '@l2beat/discovery-types'
-import { HttpClient } from '@l2beat/shared'
+import path from 'path'
+import type { Logger } from '@l2beat/backend-tools'
+import type { HttpClient } from '@l2beat/shared'
 import { providers } from 'ethers'
-import { DiscoveryChainConfig, DiscoveryModuleConfig } from '../config/types'
+import type {
+  DiscoveryChainConfig,
+  DiscoveryModuleConfig,
+} from '../config/types'
 import { printSharedModuleInfo } from '../utils/printSharedModuleInfo'
-import { DiscoveryLogger } from './DiscoveryLogger'
 import { OverwriteCacheWrapper } from './OverwriteCacheWrapper'
-import { Analysis } from './analysis/AddressAnalyzer'
-import { ConfigReader } from './config/ConfigReader'
-import { DiscoveryConfig } from './config/DiscoveryConfig'
+import type { Analysis } from './analysis/AddressAnalyzer'
+import { TEMPLATES_PATH, TemplateService } from './analysis/TemplateService'
+import type { ConfigReader } from './config/ConfigReader'
+import type { ConfigRegistry } from './config/ConfigRegistry'
+import type { DiscoveryPaths } from './config/getDiscoveryPaths'
 import { getDiscoveryEngine } from './getDiscoveryEngine'
 import { diffDiscovery } from './output/diffDiscovery'
 import { printTemplatization } from './output/printTemplatization'
 import { saveDiscoveryResult } from './output/saveDiscoveryResult'
 import { toDiscoveryOutput } from './output/toDiscoveryOutput'
+import type { DiscoveryOutput } from './output/types'
 import { SQLiteCache } from './provider/SQLiteCache'
-import { AllProviderStats, printProviderStats } from './provider/Stats'
+import { type AllProviderStats, printProviderStats } from './provider/Stats'
 
 export async function runDiscovery(
+  paths: DiscoveryPaths,
   http: HttpClient,
   configReader: ConfigReader,
   config: DiscoveryModuleConfig,
   chainConfigs: DiscoveryChainConfig[],
+  logger: Logger,
 ): Promise<void> {
   const projectConfig = configReader.readConfig(
     config.project,
@@ -34,8 +42,8 @@ export async function runDiscovery(
           .blockNumber
       : undefined)
 
-  const logger = DiscoveryLogger.CLI
   const { result, blockNumber, providerStats } = await discover(
+    paths,
     chainConfigs,
     projectConfig,
     logger,
@@ -44,18 +52,22 @@ export async function runDiscovery(
     config.overwriteCache,
   )
 
+  const templatesFolder = path.join(paths.discovery, TEMPLATES_PATH)
+
   await saveDiscoveryResult(result, projectConfig, blockNumber, logger, {
+    paths,
     sourcesFolder: config.sourcesFolder,
     flatSourcesFolder: config.flatSourcesFolder,
     discoveryFilename: config.discoveryFilename,
     saveSources: config.saveSources,
+    templatesFolder,
   })
 
   if (config.project.startsWith('shared-')) {
     const allConfigs = configReader.readAllConfigsForChain(config.chain.name)
-    const backrefConfigs = allConfigs.filter((c) =>
-      c.sharedModules.includes(config.project),
-    )
+    const backrefConfigs = allConfigs
+      .filter((c) => c.structure.sharedModules.includes(config.project))
+      .map((c) => c.structure)
     printSharedModuleInfo(backrefConfigs)
   }
 
@@ -63,14 +75,23 @@ export async function runDiscovery(
     printProviderStats(logger, providerStats)
   }
 
-  printTemplatization(logger, result, !!config.verboseTemplatization)
+  const templateService = new TemplateService(paths.discovery)
+
+  printTemplatization(
+    logger,
+    result,
+    !!config.verboseTemplatization,
+    templateService,
+  )
 }
 
 export async function dryRunDiscovery(
+  paths: DiscoveryPaths,
   http: HttpClient,
   configReader: ConfigReader,
   config: DiscoveryModuleConfig,
   chainConfigs: DiscoveryChainConfig[],
+  logger: Logger,
 ): Promise<void> {
   const provider = new providers.StaticJsonRpcProvider(config.chain.rpcUrl)
   const blockNumber = await provider.getBlockNumber()
@@ -84,25 +105,26 @@ export async function dryRunDiscovery(
 
   const [discovered, discoveredYesterday] = await Promise.all([
     justDiscover(
+      paths,
       chainConfigs,
       projectConfig,
       blockNumber,
       http,
       config.overwriteCache,
+      logger,
     ),
     justDiscover(
+      paths,
       chainConfigs,
       projectConfig,
       blockNumberYesterday,
       http,
       config.overwriteCache,
+      logger,
     ),
   ])
 
-  const diff = diffDiscovery(
-    discoveredYesterday.contracts,
-    discovered.contracts,
-  )
+  const diff = diffDiscovery(discoveredYesterday.entries, discovered.entries)
 
   if (diff.length > 0) {
     console.log(JSON.stringify(diff, null, 2))
@@ -112,33 +134,33 @@ export async function dryRunDiscovery(
 }
 
 async function justDiscover(
+  paths: DiscoveryPaths,
   chainConfigs: DiscoveryChainConfig[],
-  config: DiscoveryConfig,
+  config: ConfigRegistry,
   blockNumber: number,
   http: HttpClient,
   overwriteCache: boolean,
+  logger: Logger,
 ): Promise<DiscoveryOutput> {
   const { result } = await discover(
+    paths,
     chainConfigs,
     config,
-    DiscoveryLogger.CLI,
+    logger,
     blockNumber,
     http,
     overwriteCache,
   )
-  return toDiscoveryOutput(
-    config.name,
-    config.chain,
-    config.hash,
-    blockNumber,
-    result,
-  )
+
+  const templateService = new TemplateService(paths.discovery)
+  return toDiscoveryOutput(templateService, config, blockNumber, result)
 }
 
 export async function discover(
+  paths: DiscoveryPaths,
   chainConfigs: DiscoveryChainConfig[],
-  config: DiscoveryConfig,
-  logger: DiscoveryLogger,
+  config: ConfigRegistry,
+  logger: Logger,
   blockNumber: number | undefined,
   http: HttpClient,
   overwriteChache: boolean,
@@ -147,25 +169,26 @@ export async function discover(
   blockNumber: number
   providerStats: AllProviderStats
 }> {
-  const sqliteCache = new SQLiteCache()
-  await sqliteCache.init()
+  const sqliteCache = new SQLiteCache(paths.cache)
 
   const cache = overwriteChache
     ? new OverwriteCacheWrapper(sqliteCache)
     : sqliteCache
 
+  const chain = config.structure.chain
   const { allProviders, discoveryEngine } = getDiscoveryEngine(
+    paths,
     chainConfigs,
     cache,
     http,
     logger,
-    config.chain,
+    chain,
   )
-  blockNumber ??= await allProviders.getLatestBlockNumber(config.chain)
-  const provider = allProviders.get(config.chain, blockNumber)
+  blockNumber ??= await allProviders.getLatestBlockNumber(chain)
+  const provider = allProviders.get(chain, blockNumber)
   return {
-    result: await discoveryEngine.discover(provider, config),
+    result: await discoveryEngine.discover(provider, config.structure),
     blockNumber,
-    providerStats: allProviders.getStats(config.chain),
+    providerStats: allProviders.getStats(chain),
   }
 }

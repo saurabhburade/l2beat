@@ -1,16 +1,16 @@
 import {
   assert,
-  ProjectId,
-  TrackedTxsConfigSubtype,
+  type ProjectId,
+  type TrackedTxsConfigSubtype,
   UnixTime,
   slidingWindow,
 } from '@l2beat/shared-pure'
-import { chunk } from 'lodash'
+import chunk from 'lodash/chunk'
 
-import { Database } from '@l2beat/database'
+import type { Database } from '@l2beat/database'
 import { LivenessWithConfigService } from '../../../tracked-txs/modules/liveness/services/LivenessWithConfigService'
 
-import { RpcClient } from '@l2beat/shared'
+import type { RpcClient } from '@l2beat/shared'
 export type Transaction = {
   txHash: string
   timestamp: UnixTime
@@ -72,7 +72,7 @@ export abstract class BaseAnalyzer {
     // get ability to look back a single tx we need to query more. We're going
     // to assume that we will find at least one entry before our interval at
     // least one before.
-    const fromSafe = from.add(-1, 'days')
+    const fromSafe = from - 1 * UnixTime.DAY
     const safeTransactions = await livenessWithConfig.getWithinTimeRange(
       fromSafe,
       to,
@@ -83,15 +83,18 @@ export abstract class BaseAnalyzer {
     }
 
     const sortedSafeTransactions = safeTransactions.sort(
-      (tx1, tx2) => tx1.timestamp.toNumber() - tx2.timestamp.toNumber(),
+      (tx1, tx2) => tx1.timestamp - tx2.timestamp,
     )
-    const firstInRange = sortedSafeTransactions.findIndex((t) =>
-      t.timestamp.gte(from),
+    const firstInRange = sortedSafeTransactions.findIndex(
+      (t) => t.timestamp >= from,
     )
 
     assert(firstInRange !== 0, 'Assumption from above comment is not met')
-    const transactions =
-      firstInRange !== -1 ? sortedSafeTransactions.slice(firstInRange - 1) : []
+
+    if (firstInRange === -1) {
+      return undefined
+    }
+    const transactions = sortedSafeTransactions.slice(firstInRange - 1)
     const windowedTransactions = slidingWindow(transactions, 2, 1)
 
     const finalityBatches = []
@@ -102,7 +105,7 @@ export abstract class BaseAnalyzer {
         batch.map(
           async ([prevTx, tx]) =>
             ({
-              l1Timestamp: tx.timestamp.toNumber(),
+              l1Timestamp: tx.timestamp,
               l2Blocks: await this.analyze(
                 { txHash: prevTx.txHash, timestamp: tx.timestamp },
                 { txHash: tx.txHash, timestamp: tx.timestamp },
@@ -143,10 +146,10 @@ export function batchesToStateUpdateDelays(
   const map: Map<number, number> = new Map()
   for (const batch of t2iBatches) {
     for (const l2Block of batch.l2Blocks) {
-      if (oldestBlock && oldestBlock.blockNumber > l2Block.blockNumber) {
+      if (!oldestBlock || oldestBlock.blockNumber > l2Block.blockNumber) {
         oldestBlock = l2Block
       }
-      if (newestBlock && newestBlock.blockNumber < l2Block.blockNumber) {
+      if (!newestBlock || newestBlock.blockNumber < l2Block.blockNumber) {
         newestBlock = l2Block
       }
 
@@ -178,9 +181,6 @@ export function batchesToStateUpdateDelays(
     b.l2Blocks.map((l2Block) => {
       const l1Timestamp = b.l1Timestamp
       const l2Timestamp = getL2BlockTimestamp(l2Block.blockNumber)
-      if (l2Timestamp > l1Timestamp) {
-        console.log(l2Block, b.l1Timestamp)
-      }
       return l1Timestamp - l2Timestamp
     }),
   )

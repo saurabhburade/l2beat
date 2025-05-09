@@ -1,6 +1,7 @@
-import { Logger } from '@l2beat/backend-tools'
+import type { Logger } from '@l2beat/backend-tools'
+import { UnixTime } from '@l2beat/shared-pure'
 import { RootIndexer } from '@l2beat/uif'
-import { Clock } from '../../../tools/Clock'
+import type { Clock } from '../../../tools/Clock'
 
 export class DayTargetIndexer extends RootIndexer {
   constructor(
@@ -16,7 +17,9 @@ export class DayTargetIndexer extends RootIndexer {
   }
 
   tick(): Promise<number> {
-    const day = this.clock.getLastHour().toStartOf('day').toDays()
+    const day = UnixTime.toDays(
+      UnixTime.toStartOf(this.clock.getLastHour(), 'day'),
+    )
 
     return Promise.resolve(day)
   }

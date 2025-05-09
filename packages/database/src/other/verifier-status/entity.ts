@@ -1,6 +1,6 @@
 import { ChainId, UnixTime } from '@l2beat/shared-pure'
-import { Insertable, Selectable } from 'kysely'
-import { VerifierStatus } from '../../kysely/generated/types'
+import type { Insertable, Selectable } from 'kysely'
+import type { VerifierStatus } from '../../kysely/generated/types'
 
 export interface VerifierStatusRecord {
   address: string
@@ -15,8 +15,8 @@ export function toRow(
   return {
     ...record,
     chainId: +record.chainId,
-    lastUsed: record.lastUsed.toDate(),
-    lastUpdated: record.lastUpdated.toDate(),
+    lastUsed: UnixTime.toDate(record.lastUsed),
+    lastUpdated: UnixTime.toDate(record.lastUpdated),
   }
 }
 

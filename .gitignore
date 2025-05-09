@@ -1,4 +1,5 @@
 node_modules
+.pnpm-store
 yarn-error.log
 .DS_Store
 .turbo
@@ -7,6 +8,7 @@ yarn-error.log
 # IDEs
 .vscode
 .idea
+.*.sw[op]
 
 # Next.js
 .next
@@ -25,3 +27,5 @@ dist
 
 # l2b
 cache/
+packages/backend/scripts/tvs/breakdown.json
+packages/backend/scripts/tvs/local-data.json

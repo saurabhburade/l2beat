@@ -1,22 +1,22 @@
 import { createHash } from 'crypto'
-import { BlobsInBlock } from '@l2beat/shared'
+import type { BlobsInBlock } from '@l2beat/shared'
 import {
   assert,
   Bytes,
-  EthereumAddress,
-  Hash256,
+  type EthereumAddress,
+  type Hash256,
   UnixTime,
 } from '@l2beat/shared-pure'
-import { BigNumber, providers } from 'ethers'
-import { ContractSource } from '../../utils/IEtherscanClient'
+import { BigNumber, type providers } from 'ethers'
+import type { ContractSource } from '../../utils/IEtherscanClient'
 import { isRevert } from '../utils/isRevert'
 import { DebugTransactionCallResponse } from './DebugTransactionTrace'
-import { CacheEntry } from './DiscoveryCache'
-import { ContractDeployment, RawProviders } from './IProvider'
-import { LowLevelProvider } from './LowLevelProvider'
-import { ReorgAwareCache } from './ReorgAwareCache'
+import type { CacheEntry } from './DiscoveryCache'
+import type { ContractDeployment, RawProviders } from './IProvider'
+import type { LowLevelProvider } from './LowLevelProvider'
+import type { ReorgAwareCache } from './ReorgAwareCache'
 import { ProviderMeasurement, ProviderStats } from './Stats'
-import { MulticallClient } from './multicall/MulticallClient'
+import type { MulticallClient } from './multicall/MulticallClient'
 
 interface ScheduledCall {
   resolve: (value: Bytes) => void
@@ -531,7 +531,7 @@ export class BatchingAndCachingProvider {
         return undefined
       } else {
         const parsed = parseCacheEntry(cached)
-        parsed.timestamp = new UnixTime(parsed.timestamp)
+        parsed.timestamp = UnixTime(parsed.timestamp)
         return parsed
       }
     }
@@ -554,9 +554,50 @@ export class BatchingAndCachingProvider {
     entry.write(JSON.stringify(blobs))
     return blobs
   }
+
+  async celestiaBlobExists(
+    height: number,
+    namespace: string,
+    commitment: string,
+  ) {
+    const entry = await this.cache.entry(
+      'celestiaBlobExists',
+      [height, namespace, commitment],
+      undefined,
+    )
+    const cached = entry.read()
+    if (cached !== undefined) {
+      return parseCacheEntry(cached)
+    }
+
+    const blobExists = await this.provider.celestiaBlobExists(
+      height,
+      namespace,
+      commitment,
+    )
+
+    entry.write(JSON.stringify(blobExists))
+
+    return blobExists
+  }
+
+  async getCelestiaBlockResultLogs(height: number) {
+    const entry = await this.cache.entry(
+      'getCelestiaBlockResultLogs',
+      [height],
+      undefined,
+    )
+    const cached = entry.read()
+    if (cached !== undefined) {
+      return parseCacheEntry(cached)
+    }
+    const logs = await this.provider.getCelestiaBlockResultLogs(height)
+    entry.write(JSON.stringify(logs))
+    return logs
+  }
 }
 
-function orderLogs(a: providers.Log, b: providers.Log) {
+export function orderLogs(a: providers.Log, b: providers.Log) {
   const blocks = a.blockNumber - b.blockNumber
   if (blocks !== 0) {
     return blocks

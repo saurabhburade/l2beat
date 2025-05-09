@@ -8,23 +8,30 @@ import {
   TooltipTrigger,
 } from '../../core/tooltip/tooltip'
 import { SentimentText } from '../../sentiment-text'
-import { WarningBar } from '../../warning-bar'
+import { WarningBar, sentimentToWarningBarColor } from '../../warning-bar'
 import {
   RosetteTooltipContextProvider,
   useRosetteTooltipContext,
 } from '../rosette-tooltip-context'
-import { type RosetteValue } from '../types'
+import type { RosetteValue } from '../types'
 import { PizzaRosetteIcon } from './pizza-rosette-icon'
 import { PizzaRosetteLabels } from './pizza-rosette-labels'
+import { RealPizzaRosetteIcon } from './real-pizza-rosette-icon'
 
 export interface BigPizzaRosetteProps {
   values: RosetteValue[]
   isUpcoming?: boolean
   isUnderReview?: boolean
   className?: string
+  background?: 'header' | 'surface'
+  realPizza?: boolean
 }
 
 export function BigPizzaRosette(props: BigPizzaRosetteProps) {
+  const PizzaComponent = props.realPizza
+    ? RealPizzaRosetteIcon
+    : PizzaRosetteIcon
+
   const isUnderReview =
     !!props.isUnderReview ||
     Object.values(props.values).some(
@@ -39,10 +46,11 @@ export function BigPizzaRosette(props: BigPizzaRosetteProps) {
           props.className,
         )}
       >
-        <PizzaRosetteIcon
+        <PizzaComponent
           values={props.values}
           isUnderReview={isUnderReview}
           className={cn(props.isUpcoming && 'opacity-30')}
+          background={props.background}
         />
         {props.isUpcoming && (
           <UpcomingBadge className="absolute left-[90px] top-[130px]" />
@@ -64,9 +72,10 @@ export function BigPizzaRosette(props: BigPizzaRosetteProps) {
           data-rosette-hover-disabled={isUnderReview || props.isUpcoming}
         >
           <TooltipTrigger>
-            <PizzaRosetteIcon
+            <PizzaComponent
               values={props.values}
               isUnderReview={isUnderReview}
+              background={props.background}
             />
           </TooltipTrigger>
           <PizzaRosetteLabels
@@ -94,23 +103,24 @@ function RosetteTooltipContent() {
       }}
       className="w-[300px]"
     >
-      <p className="font-medium text-primary">{selectedRisk.name}</p>
+      <p className="label-value-14-medium mb-2">{selectedRisk.name}</p>
       <SentimentText
-        sentiment={selectedRisk.sentiment}
-        className="mb-2 flex items-center gap-1 text-lg font-bold"
+        sentiment={selectedRisk.sentiment ?? 'neutral'}
+        vibrant={true}
+        className="heading-18 mb-2 flex items-center gap-1"
       >
         {selectedRisk.value}
       </SentimentText>
       {selectedRisk.warning && (
         <WarningBar
-          className="mb-2"
+          className="mb-2 px-3 py-2"
           icon={RoundedWarningIcon}
           text={selectedRisk.warning.value}
-          color={selectedRisk.warning.sentiment === 'bad' ? 'red' : 'yellow'}
+          color={sentimentToWarningBarColor(selectedRisk.warning.sentiment)}
           ignoreMarkdown
         />
       )}
-      <span className="text-xs">{selectedRisk.description}</span>
+      <span>{selectedRisk.description}</span>
     </TooltipContent>
   )
 }

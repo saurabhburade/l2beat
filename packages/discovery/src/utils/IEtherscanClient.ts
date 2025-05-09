@@ -1,7 +1,9 @@
-import { HttpClient } from '@l2beat/shared'
-import { EthereumAddress, Hash256, UnixTime } from '@l2beat/shared-pure'
+import type { HttpClient } from '@l2beat/shared'
+import type { EthereumAddress, Hash256, UnixTime } from '@l2beat/shared-pure'
 import { BlockscoutClient } from './BlockscoutClient'
 import { EtherscanClient } from './EtherscanClient'
+import { RoutescanClient } from './RoutescanClient'
+import { SourcifyClient } from './SourcifyClient'
 
 // If a given instance of Etherscan does not support some endpoint set a
 // corresponding variable to true, otherwise do not set to anything -
@@ -13,6 +15,14 @@ export interface EtherscanUnsupportedMethods {
 interface EtherscanExplorerConfig {
   type: 'etherscan'
   url: string
+  chainId: number
+  apiKey: string
+  unsupported?: EtherscanUnsupportedMethods
+}
+
+interface EtherscanV1ExplorerConfig {
+  type: 'etherscan-v1'
+  url: string
   apiKey: string
   unsupported?: EtherscanUnsupportedMethods
 }
@@ -23,13 +33,29 @@ interface BlockscoutExplorerConfig {
   unsupported?: EtherscanUnsupportedMethods
 }
 
+interface RoutescanExplorerConfig {
+  type: 'routescan'
+  url: string
+  unsupported?: EtherscanUnsupportedMethods
+}
+
+interface SourcifyExplorerConfig {
+  type: 'sourcify'
+  chainId: number
+}
+
 export interface Transaction {
   input: string
   to: EthereumAddress
   hash: Hash256
 }
 
-export type ExplorerConfig = EtherscanExplorerConfig | BlockscoutExplorerConfig
+export type ExplorerConfig =
+  | EtherscanExplorerConfig
+  | EtherscanV1ExplorerConfig
+  | BlockscoutExplorerConfig
+  | RoutescanExplorerConfig
+  | SourcifyExplorerConfig
 
 export interface ContractSource {
   name: string
@@ -49,7 +75,7 @@ export interface IEtherscanClient {
   ): Promise<Hash256 | undefined>
 
   getFirstTxTimestamp(address: EthereumAddress): Promise<UnixTime>
-  getLast10OutgoingTxs(
+  getAtMost10RecentOutgoingTxs(
     address: EthereumAddress,
     blockNumber: number,
   ): Promise<Transaction[]>
@@ -60,7 +86,7 @@ export function getExplorerClient(
   config: ExplorerConfig,
 ): IEtherscanClient {
   switch (config.type) {
-    case 'etherscan': {
+    case 'etherscan-v1': {
       return EtherscanClient.createForDiscovery(
         httpClient,
         config.url,
@@ -68,8 +94,28 @@ export function getExplorerClient(
         config.unsupported,
       )
     }
+    case 'etherscan': {
+      return EtherscanClient.createForDiscovery(
+        httpClient,
+        config.url,
+        config.apiKey,
+        config.unsupported,
+        { chainId: config.chainId.toString() },
+      )
+    }
+    case 'routescan': {
+      return RoutescanClient.createForDiscovery(
+        httpClient,
+        config.url,
+        '',
+        config.unsupported,
+      )
+    }
     case 'blockscout': {
       return new BlockscoutClient(httpClient, config.url, config.unsupported)
+    }
+    case 'sourcify': {
+      return new SourcifyClient(httpClient, config.chainId)
     }
     default: {
       throw new Error('Unknown explorer type')

@@ -1,8 +1,10 @@
-import { Block, json } from '@l2beat/shared-pure'
+import type { Block, json } from '@l2beat/shared-pure'
 import { generateIntId } from '../../tools/generateId'
-import { ClientCore, ClientCoreDependencies } from '../ClientCore'
-import { BlockClient } from '../types'
+import { ClientCore, type ClientCoreDependencies } from '../ClientCore'
+import type { BlockClient } from '../types'
 import {
+  type StarknetCallParameters,
+  StarknetCallResponse,
   StarknetErrorResponse,
   StarknetGetBlockResponse,
   StarknetGetBlockWithTxsResponse,
@@ -55,6 +57,25 @@ export class StarknetClient extends ClientCore implements BlockClient {
         data: t.calldata,
       })),
     }
+  }
+
+  async call(
+    callParams: StarknetCallParameters,
+    blockNumber: number | 'latest',
+  ): Promise<string[]> {
+    const params = [
+      callParams,
+      blockNumber === 'latest' ? 'latest' : { block_number: blockNumber },
+    ]
+
+    const response = await this.query('starknet_call', params)
+    const calllResponse = StarknetCallResponse.safeParse(response)
+
+    if (!calllResponse.success) {
+      throw new Error(`Call: Error during parsing`)
+    }
+
+    return calllResponse.data.result
   }
 
   async query(method: string, params: unknown) {

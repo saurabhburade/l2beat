@@ -4,12 +4,13 @@
 
 # build system cache
 node_modules
+.pnpm-store
 .turbo
 
 # IDEs
 .vscode
 .idea
-.*.swp
+.*.sw[op]
 
 # Docker
 .dockerignore

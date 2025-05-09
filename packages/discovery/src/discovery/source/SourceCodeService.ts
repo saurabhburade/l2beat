@@ -1,9 +1,9 @@
-import { EthereumAddress } from '@l2beat/shared-pure'
-import { zip } from 'lodash'
+import type { EthereumAddress } from '@l2beat/shared-pure'
+import zip from 'lodash/zip'
 
-import { flatteningHash } from '../../flatten/utils'
-import { ContractSource } from '../../utils/IEtherscanClient'
-import { IProvider } from '../provider/IProvider'
+import { contractFlatteningHash, sha2_256bit } from '../../flatten/utils'
+import type { ContractSource } from '../../utils/IEtherscanClient'
+import type { IProvider } from '../provider/IProvider'
 import { deduplicateAbi } from './deduplicateAbi'
 import { getLegacyDerivedName } from './getDerivedName'
 import { skipIgnoredFunctions } from './skipIgnoredFunctions'
@@ -26,13 +26,16 @@ export interface ContractSources {
 export class SourceCodeService {
   async getSources(
     provider: IProvider,
-    address: EthereumAddress,
-    implementations?: EthereumAddress[],
+    addresses: EthereumAddress[],
+    manualSourcePath: Record<string, string>,
   ): Promise<ContractSources> {
-    const addresses = [address, ...(implementations ?? [])]
-    const metadata = await Promise.all(
-      addresses.map((x) => provider.getSource(x)),
+    const metadataPerAddress = await Promise.all(
+      addresses.map(
+        async (x) =>
+          [x, await provider.getSource(x)] as [string, ContractSource],
+      ),
     )
+    const metadata = metadataPerAddress.map(([_, x]) => x)
 
     const name = getLegacyDerivedName(metadata.map((x) => x.name))
     const abi = deduplicateAbi(metadata.flatMap((x) => x.abi))
@@ -48,14 +51,18 @@ export class SourceCodeService {
       }
 
       sources.push({
-        hash: flatteningHash(item),
+        hash: this.getHash(item, manualSourcePath[address.toString()]),
         name: item.name,
         address: address,
         source: item,
       })
     }
 
-    const isVerified = metadata.every((x) => x.isVerified)
+    const isVerified = metadataPerAddress.every(
+      ([address, metadata]) =>
+        metadata.isVerified ||
+        manualSourcePath[address.toString()] !== undefined,
+    )
 
     return { name, isVerified, abi, abis, sources }
   }
@@ -78,5 +85,17 @@ export class SourceCodeService {
     const relevantAbi = skipIgnoredFunctions(abi, ignoreInWatchMode)
 
     return relevantAbi
+  }
+
+  private getHash(
+    item: ContractSource,
+    manualSourcePath: string | undefined,
+  ): string | undefined {
+    const hash = contractFlatteningHash(item)
+    if (hash === undefined && manualSourcePath !== undefined) {
+      return sha2_256bit(manualSourcePath)
+    }
+
+    return hash
   }
 }

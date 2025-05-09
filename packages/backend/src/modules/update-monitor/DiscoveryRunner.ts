@@ -1,26 +1,26 @@
 import { Logger } from '@l2beat/backend-tools'
 import {
-  AllProviders,
-  ConfigReader,
-  DiscoveryConfig,
-  DiscoveryEngine,
-  DiscoveryLogger,
-  flattenDiscoveredSources,
-  toDiscoveryOutput,
-} from '@l2beat/discovery'
-import type { DiscoveryOutput } from '@l2beat/discovery-types'
-import {
-  AllProviderStats,
+  type AllProviderStats,
+  type AllProviders,
+  type Analysis,
+  type ConfigRegistry,
+  type DiscoveryEngine,
+  type DiscoveryOutput,
   ProviderMeasurement,
-  ProviderStats,
-} from '@l2beat/discovery/dist/discovery/provider/Stats'
-import { assert } from '@l2beat/shared-pure'
-import { isError } from 'lodash'
+  type ProviderStats,
+  type TemplateService,
+  combinePermissionsIntoDiscovery,
+  flattenDiscoveredSources,
+  getDiscoveryPaths,
+  modelPermissionsForIsolatedDiscovery,
+  toRawDiscoveryOutput,
+} from '@l2beat/discovery'
+import { assert, withoutUndefinedKeys } from '@l2beat/shared-pure'
+import isError from 'lodash/isError'
 import { Gauge } from 'prom-client'
 
 export interface DiscoveryRunnerOptions {
   logger: Logger
-  injectInitialAddresses: boolean
   maxRetries?: number
   retryDelayMs?: number
 }
@@ -38,7 +38,7 @@ export class DiscoveryRunner {
   constructor(
     private readonly allProviders: AllProviders,
     private readonly discoveryEngine: DiscoveryEngine,
-    private readonly configReader: ConfigReader,
+    private readonly templateService: TemplateService,
     readonly chain: string,
   ) {}
 
@@ -46,48 +46,48 @@ export class DiscoveryRunner {
     return await this.allProviders.getLatestBlockNumber(this.chain)
   }
 
-  async run(
-    projectConfig: DiscoveryConfig,
-    blockNumber: number,
-    options: DiscoveryRunnerOptions,
-  ): Promise<DiscoveryRunResult> {
-    const config = options.injectInitialAddresses
-      ? await this.updateInitialAddresses(projectConfig)
-      : projectConfig
-
-    return await this.discoverWithRetry(
-      config,
-      blockNumber,
-      options.logger,
-      options.maxRetries,
-      options.retryDelayMs,
-    )
-  }
-
   private async discover(
-    config: DiscoveryConfig,
+    config: ConfigRegistry,
     blockNumber: number,
   ): Promise<DiscoveryRunResult> {
     const provider = this.allProviders.get(config.chain, blockNumber)
-    const result = await this.discoveryEngine.discover(provider, config)
+    const result = await this.discoveryEngine.discover(
+      provider,
+      config.structure,
+    )
 
     setDiscoveryMetrics(this.allProviders.getStats(config.chain), config.chain)
 
-    const discovery = toDiscoveryOutput(
-      config.name,
-      config.chain,
-      config.hash,
+    const discovery = toRawDiscoveryOutput(
+      this.templateService,
+      config,
       blockNumber,
       result,
     )
 
-    const flatSources = flattenDiscoveredSources(result, DiscoveryLogger.SILENT)
+    // This is a temporary solution to model project in isolation
+    // until we refactor Update Monitor to support cross-chain discovery
+    const discoveryPaths = getDiscoveryPaths()
+    const permissionsOutput = await modelPermissionsForIsolatedDiscovery(
+      discovery,
+      config.permission,
+      this.templateService,
+      discoveryPaths,
+    )
+    combinePermissionsIntoDiscovery(discovery, permissionsOutput)
 
-    return { discovery, flatSources }
+    // TODO: Should not be here - drop it and use implementation name once it's ready
+    // if somebody changes the name and decides to re-colorize
+    // then .flat folder will be incorrect
+    // Duplicated from saveDiscoveryResult.ts
+    const remappedResults = remapNames(result, discovery)
+    const flatSources = flattenDiscoveredSources(remappedResults, Logger.SILENT)
+
+    return { discovery: withoutUndefinedKeys(discovery), flatSources }
   }
 
   async discoverWithRetry(
-    config: DiscoveryConfig,
+    config: ConfigRegistry,
     blockNumber: number,
     logger: Logger,
     maxRetries = MAX_RETRIES,
@@ -124,23 +124,6 @@ export class DiscoveryRunner {
     }
 
     return result
-  }
-
-  // There was a case connected with Amarok (better described in L2B-1521)
-  // the problem was with stack too deep in the discovery caused by misconfigured new contract
-  // that had a lot of relatives (e.g. Uniswap, DAI)
-  // unfortunately, it resulted in not discovering important contracts because they cannot be put on the stack
-  // this function ensures that initial addresses are taken from discovered.json
-  // so this way we will always discover "known" contracts
-  async updateInitialAddresses(config: DiscoveryConfig) {
-    const discovery = this.configReader.readDiscovery(config.name, this.chain)
-    const initialAddresses = discovery.contracts.map((c) => c.address)
-    return new DiscoveryConfig({
-      ...config.raw,
-      initialAddresses,
-      maxAddresses: (config.raw.maxAddresses ?? 200) * 3,
-      maxDepth: (config.raw.maxDepth ?? 6) * 3,
-    })
   }
 }
 
@@ -216,3 +199,29 @@ const highLevelProviderDurationGauge: ProviderGauge = new Gauge({
   help: 'Average duration of methods in high level provider calls done during discovery',
   labelNames: ['chain', 'method'],
 })
+
+function remapNames(
+  results: Analysis[],
+  discoveryOutput: DiscoveryOutput,
+): Analysis[] {
+  return results.map((entry) => {
+    if (entry.type === 'EOA') {
+      return entry
+    }
+
+    const matchingEntry = discoveryOutput.entries.find(
+      (e) => e.address === entry.address,
+    )
+
+    if (!matchingEntry) {
+      return entry
+    }
+
+    const newName = matchingEntry.name ?? entry.name
+
+    return {
+      ...entry,
+      name: newName,
+    }
+  })
+}

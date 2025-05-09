@@ -1,4 +1,4 @@
-import { type SearchBarPage } from './search-bar-entry'
+import type { SearchBarPage } from './search-bar-entry'
 
 export const searchBarPages = withIndex([
   {
@@ -15,9 +15,9 @@ export const searchBarPages = withIndex([
   },
   {
     category: 'scaling',
-    name: 'Value Locked',
-    tags: ['pages', 'scaling', 'tvl'],
-    href: '/scaling/tvl',
+    name: 'Value Secured',
+    tags: ['pages', 'scaling', 'tvs', 'tvl'],
+    href: '/scaling/tvs',
   },
   {
     category: 'scaling',
@@ -69,12 +69,6 @@ export const searchBarPages = withIndex([
   },
   {
     category: 'bridges',
-    name: 'Risk Analysis',
-    tags: ['pages', 'bridges', 'risks'],
-    href: '/bridges/risk',
-  },
-  {
-    category: 'bridges',
     name: 'Archived',
     tags: ['pages', 'bridges'],
     href: '/bridges/archived',
@@ -90,6 +84,12 @@ export const searchBarPages = withIndex([
     name: 'Risk Analysis',
     tags: ['pages', 'da', 'data', 'availability', 'risks'],
     href: '/data-availability/risk',
+  },
+  {
+    category: 'da',
+    name: 'Throughput',
+    tags: ['pages', 'da', 'data', 'availability', 'throughput'],
+    href: '/data-availability/throughput',
   },
   {
     category: 'zkCatalog',

@@ -1,25 +1,25 @@
-import { EthereumAddress } from '@l2beat/shared-pure'
+import type { EthereumAddress } from '@l2beat/shared-pure'
 
-import { DiscoveryContractField } from '../config/RawDiscoveryConfig'
-import { HandlerResult } from '../handlers/Handler'
-import { AddressesWithTemplates } from './AddressAnalyzer'
-import { getAddresses } from './metaUtils'
+import type { StructureContractField } from '../config/StructureConfig'
+import type { HandlerResult } from '../handlers/Handler'
+import { toAddressArray } from '../utils/extractors'
+import type { AddressesWithTemplates } from './AddressAnalyzer'
 
 export function getRelativesWithSuggestedTemplates(
   parameters: HandlerResult[],
   ignoredFields?: string[],
   ignoredAddresses?: EthereumAddress[],
-  fields?: { [field: string]: DiscoveryContractField },
+  fields?: { [field: string]: StructureContractField },
 ): AddressesWithTemplates {
   const result: AddressesWithTemplates = {}
   for (const param of parameters) {
     if (param.ignoreRelative || ignoredFields?.includes(param.field)) {
       continue
     }
-    const addresses = getAddresses(param.value).filter(
+    const addresses = toAddressArray(param.value).filter(
       (address) => !ignoredAddresses?.includes(address),
     )
-    const template = fields?.[param.field]?.target?.template ?? undefined
+    const template = fields?.[param.field]?.template ?? undefined
     for (const address of addresses) {
       const curTemplates = result[address.toString()] ?? new Set()
       result[address.toString()] = curTemplates

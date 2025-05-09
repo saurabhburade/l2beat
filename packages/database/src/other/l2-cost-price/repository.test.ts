@@ -1,7 +1,7 @@
 import { UnixTime } from '@l2beat/shared-pure'
 import { expect } from 'earl'
 import { describeDatabase } from '../../test/database'
-import { L2CostPriceRecord } from './entity'
+import type { L2CostPriceRecord } from './entity'
 import { L2CostPriceRepository } from './repository'
 
 const NOW = UnixTime.now()
@@ -13,7 +13,7 @@ describeDatabase(L2CostPriceRepository.name, (db) => {
   })
 
   it(L2CostPriceRepository.prototype.insertMany.name, async () => {
-    const records = [record({ timestamp: NOW.add(-1, 'hours') }), record()]
+    const records = [record({ timestamp: NOW - 1 * UnixTime.HOUR }), record()]
 
     await repository.insertMany(records)
 
@@ -23,26 +23,26 @@ describeDatabase(L2CostPriceRepository.name, (db) => {
 
   it(L2CostPriceRepository.prototype.getByTimestampRange.name, async () => {
     const records = [
-      record({ timestamp: NOW.add(-2, 'hours') }),
-      record({ timestamp: NOW.add(-1, 'hours') }),
+      record({ timestamp: NOW - 2 * UnixTime.HOUR }),
+      record({ timestamp: NOW - 1 * UnixTime.HOUR }),
       record(),
-      record({ timestamp: NOW.add(1, 'hours') }),
-      record({ timestamp: NOW.add(2, 'hours') }),
+      record({ timestamp: NOW + 1 * UnixTime.HOUR }),
+      record({ timestamp: NOW + 2 * UnixTime.HOUR }),
     ]
     await repository.insertMany(records)
 
     const result = await repository.getByTimestampRange(
-      NOW.add(-1, 'hours'),
-      NOW.add(1, 'hours'),
+      NOW - 1 * UnixTime.HOUR,
+      NOW + 1 * UnixTime.HOUR,
     )
     expect(result).toEqual([records[1]!, records[2]!, records[3]!])
   })
 
   it(L2CostPriceRepository.prototype.deleteAfter.name, async () => {
     const records = [
-      record({ timestamp: NOW.add(-1, 'hours') }),
+      record({ timestamp: NOW - 1 * UnixTime.HOUR }),
       record(),
-      record({ timestamp: NOW.add(1, 'hours') }),
+      record({ timestamp: NOW + 1 * UnixTime.HOUR }),
     ]
     await repository.insertMany(records)
 

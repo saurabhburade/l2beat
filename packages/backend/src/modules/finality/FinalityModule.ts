@@ -1,11 +1,11 @@
-import { Logger } from '@l2beat/backend-tools'
-import { Database } from '@l2beat/database'
+import type { Logger } from '@l2beat/backend-tools'
+import type { Database } from '@l2beat/database'
+import type { EthereumDaProvider } from '@l2beat/shared'
 import { assert, assertUnreachable, notUndefined } from '@l2beat/shared-pure'
-import { Config } from '../../config'
-import { FinalityProjectConfig } from '../../config/features/finality'
-import { Providers } from '../../providers/Providers'
-import { ApplicationModule } from '../ApplicationModule'
-import { TrackedTxsIndexer } from '../tracked-txs/TrackedTxsIndexer'
+import type { Config, FinalityConfigProject } from '../../config/Config'
+import type { Providers } from '../../providers/Providers'
+import type { ApplicationModule } from '../ApplicationModule'
+import type { TrackedTxsIndexer } from '../tracked-txs/TrackedTxsIndexer'
 import { FinalityIndexer } from './FinalityIndexer'
 import { LoopringT2IAnalyzer } from './analyzers/LoopringT2IAnalyzer'
 import { ScrollT2IAnalyzer } from './analyzers/ScrollT2IAnalyzer'
@@ -17,7 +17,7 @@ import { OpStackStateUpdateAnalyzer } from './analyzers/opStack/OpStackStateUpda
 import { OpStackT2IAnalyzer } from './analyzers/opStack/OpStackT2IAnalyzer'
 import { PolygonZkEvmT2IAnalyzer } from './analyzers/polygon-zkevm/PolygonZkevmT2IAnalyzer'
 import { zkSyncEraT2IAnalyzer } from './analyzers/zkSyncEraT2IAnalyzer'
-import { FinalityConfig } from './types/FinalityConfig'
+import type { FinalityConfig } from './types/FinalityConfig'
 
 export function createFinalityModule(
   config: Config,
@@ -70,7 +70,7 @@ export function createFinalityModule(
 }
 
 function initializeConfigurations(
-  configs: FinalityProjectConfig[],
+  configs: FinalityConfigProject[],
   providers: Providers,
   database: Database,
   logger: Logger,
@@ -83,8 +83,10 @@ function initializeConfigurations(
   const degateClient = providers.clients.degate
   assert(degateClient, 'Degate client not defined')
 
-  const blobProvider = providers.blob?.getBlobProvider()
-  assert(blobProvider, 'Blob client is required for finality module')
+  const ethereumDaProvider = providers.da.getDaProvider(
+    'ethereum',
+  ) as EthereumDaProvider
+  assert(ethereumDaProvider, 'Blob client is required for finality module')
 
   return configs
     .map((configuration): FinalityConfig | undefined => {
@@ -94,7 +96,7 @@ function initializeConfigurations(
             projectId: configuration.projectId,
             analyzers: {
               timeToInclusion: new LineaT2IAnalyzer(
-                blobProvider,
+                ethereumDaProvider,
                 ethereumClient,
                 database,
                 configuration.projectId,
@@ -111,17 +113,18 @@ function initializeConfigurations(
                 ethereumClient,
                 database,
                 configuration.projectId,
+                providers.clients.getRpcClient(configuration.projectId),
               ),
             },
             minTimestamp: configuration.minTimestamp,
             stateUpdateMode: configuration.stateUpdate,
           }
-        case 'OPStack-blob':
+        case 'OPStack':
           return {
             projectId: configuration.projectId,
             analyzers: {
               timeToInclusion: new OpStackT2IAnalyzer(
-                blobProvider,
+                ethereumDaProvider,
                 logger,
                 ethereumClient,
                 database,
@@ -147,7 +150,7 @@ function initializeConfigurations(
             projectId: configuration.projectId,
             analyzers: {
               timeToInclusion: new ArbitrumT2IAnalyzer(
-                blobProvider,
+                ethereumDaProvider,
                 logger,
                 ethereumClient,
                 database,

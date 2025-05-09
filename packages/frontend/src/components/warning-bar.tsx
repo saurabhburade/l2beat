@@ -1,12 +1,14 @@
-import { type FC } from 'react'
-
+import type { Sentiment } from '@l2beat/config'
+import { assertUnreachable } from '@l2beat/shared-pure'
 import { cva } from 'class-variance-authority'
+import type { FC } from 'react'
 import { CustomLinkIcon } from '~/icons/outlink'
 import { ShieldIcon } from '~/icons/shield'
 import { cn } from '~/utils/cn'
 import { Callout } from './callout'
 import { Markdown } from './markdown/markdown'
 import { PlainLink } from './plain-link'
+
 export interface WarningBarProps {
   color: 'red' | 'yellow' | 'gray'
   text: string
@@ -76,4 +78,19 @@ export function WarningBar({
       body={textElement}
     />
   )
+}
+
+export function sentimentToWarningBarColor(
+  sentiment: Exclude<Sentiment, 'good' | 'UnderReview'>,
+): WarningBarProps['color'] {
+  switch (sentiment) {
+    case 'bad':
+      return 'red'
+    case 'warning':
+      return 'yellow'
+    case 'neutral':
+      return 'gray'
+    default:
+      assertUnreachable(sentiment)
+  }
 }

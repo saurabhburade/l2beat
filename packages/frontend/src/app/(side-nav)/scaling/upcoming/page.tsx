@@ -1,8 +1,6 @@
-import { MainPageHeader } from '~/components/main-page-header'
 import { getScalingUpcomingEntries } from '~/server/features/scaling/upcoming/get-scaling-upcoming-entries'
 import { getDefaultMetadata } from '~/utils/metadata'
-import { ScalingFilterContextProvider } from '../_components/scaling-filter-context'
-import { ScalingUpcomingTables } from './_components/scaling-upcoming-tables'
+import { ScalingUpcomingPage } from './_page'
 
 export const metadata = getDefaultMetadata({
   openGraph: {
@@ -10,14 +8,7 @@ export const metadata = getDefaultMetadata({
   },
 })
 
-export default function Page() {
-  const entries = getScalingUpcomingEntries()
-  return (
-    <>
-      <MainPageHeader>Upcoming</MainPageHeader>
-      <ScalingFilterContextProvider>
-        <ScalingUpcomingTables entries={entries} />
-      </ScalingFilterContextProvider>
-    </>
-  )
+export default async function Page() {
+  const entries = await getScalingUpcomingEntries()
+  return <ScalingUpcomingPage entries={entries} />
 }

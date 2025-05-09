@@ -1,9 +1,9 @@
 import { Logger } from '@l2beat/backend-tools'
-import { Database, L2CostRecord } from '@l2beat/database'
-import { TrackedTxConfigEntry, createTrackedTxId } from '@l2beat/shared'
+import type { Database, L2CostRecord } from '@l2beat/database'
+import { type TrackedTxConfigEntry, createTrackedTxId } from '@l2beat/shared'
 import { EthereumAddress, ProjectId, UnixTime } from '@l2beat/shared-pure'
 import { expect, mockFn, mockObject } from 'earl'
-import { TrackedTxResult } from '../../types/model'
+import type { TrackedTxResult } from '../../types/model'
 import { L2CostsUpdater } from './L2CostsUpdater'
 
 const MIN_TIMESTAMP = UnixTime.now()
@@ -121,6 +121,7 @@ function getMockRuntimeConfigurations(): TrackedTxConfigEntry[] {
         formula: 'functionCall',
         address: EthereumAddress.random(),
         selector: '0x',
+        signature: 'function foo()',
       },
       projectId: ProjectId('test'),
       sinceTimestamp: MIN_TIMESTAMP,
@@ -133,6 +134,7 @@ function getMockRuntimeConfigurations(): TrackedTxConfigEntry[] {
         formula: 'functionCall',
         address: EthereumAddress.random(),
         selector: '0x',
+        signature: 'function foo()',
       },
       projectId: ProjectId('test2'),
       sinceTimestamp: MIN_TIMESTAMP,

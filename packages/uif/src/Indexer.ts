@@ -1,19 +1,19 @@
-import { Logger } from '@l2beat/backend-tools'
+import type { Logger } from '@l2beat/backend-tools'
 
 import { assert } from '@l2beat/shared-pure'
-import { Retries, RetryStrategy } from './Retries'
+import { Retries, type RetryStrategy } from './Retries'
 import { assertUnreachable } from './assertUnreachable'
 import { getInitialState } from './reducer/getInitialState'
 import { indexerReducer } from './reducer/indexerReducer'
-import { IndexerAction } from './reducer/types/IndexerAction'
-import {
+import type { IndexerAction } from './reducer/types/IndexerAction'
+import type {
   InitializeStateEffect,
   InvalidateEffect,
   NotifyReadyEffect,
   SetSafeHeightEffect,
   UpdateEffect,
 } from './reducer/types/IndexerEffect'
-import { IndexerState } from './reducer/types/IndexerState'
+import type { IndexerState } from './reducer/types/IndexerState'
 
 export interface IndexerOptions {
   tickRetryStrategy?: RetryStrategy
@@ -188,17 +188,24 @@ export abstract class Indexer {
     assert(!this.started, 'Indexer already started')
     this.started = true
     this.logger.info('Starting...')
-    const initializedState = await this.initialize()
 
-    if (!initializedState) {
-      return
+    try {
+      const initializedState = await this.initialize()
+
+      if (!initializedState) {
+        return
+      }
+
+      this.dispatch({
+        type: 'Initialized',
+        ...initializedState,
+        childCount: this.children.length,
+      })
+    } catch (error) {
+      this.logger.error(`Failed to initialize indexer`, {
+        error,
+      })
     }
-
-    this.dispatch({
-      type: 'Initialized',
-      ...initializedState,
-      childCount: this.children.length,
-    })
   }
 
   subscribe(child: Indexer): void {
@@ -419,7 +426,11 @@ export abstract class Indexer {
   }
 
   private logMetrics(current: number, target: number): void {
-    this.logger.info('Metrics', { delay: target - current, current, target })
+    this.logger.metric('Metrics', {
+      delay: target - current,
+      current,
+      target,
+    })
   }
 
   // #endregion

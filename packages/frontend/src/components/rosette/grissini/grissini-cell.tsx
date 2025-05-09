@@ -1,10 +1,11 @@
+import { TableLink } from '~/components/table/table-link'
 import { cn } from '~/utils/cn'
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '../../core/tooltip/tooltip'
-import { type RosetteValue } from '../types'
+import type { RosetteValue } from '../types'
 import { GrissiniIcon } from './grissini-icon'
 import { GrissiniTooltip } from './grissini-tooltip'
 
@@ -13,7 +14,8 @@ export interface GrissiniCellProps {
   isUnderReview?: boolean
   className?: string
   iconClassName?: string
-  hasNoBridge?: boolean
+  href?: string
+  disabledOnMobile?: boolean
 }
 
 export function GrissiniCell(props: GrissiniCellProps) {
@@ -28,19 +30,17 @@ export function GrissiniCell(props: GrissiniCellProps) {
           'flex size-full items-center justify-center',
           props.className,
         )}
+        disabledOnMobile={props.disabledOnMobile}
       >
-        <GrissiniIcon
-          values={props.values}
-          hasNoBridge={props.hasNoBridge}
-          className={cn('size-8 md:size-8', props.iconClassName)}
-        />
+        <TableLink href={props.href}>
+          <GrissiniIcon
+            values={props.values}
+            className={cn('size-8 md:size-8', props.iconClassName)}
+          />
+        </TableLink>
       </TooltipTrigger>
       <TooltipContent fitContent>
-        <GrissiniTooltip
-          values={props.values}
-          isUnderReview={isUnderReview}
-          hasNoBridge={props.hasNoBridge}
-        />
+        <GrissiniTooltip values={props.values} isUnderReview={isUnderReview} />
       </TooltipContent>
     </Tooltip>
   )

@@ -3,16 +3,18 @@ import { Callout } from '~/components/callout'
 import { Countdown } from '~/components/countdown'
 import { CustomLink } from '~/components/link/custom-link'
 import { externalLinks } from '~/consts/external-links'
-import { useBreakpoint } from '~/hooks/use-is-mobile'
+import { useIsMobile } from '~/hooks/use-is-mobile'
+import { ArrowRightIcon } from '~/icons/arrow-right'
 import { CloseIcon } from '~/icons/close'
-import { type ProjectCountdownsWithContext } from '~/server/features/scaling/utils/get-countdowns'
+import type { ProjectCountdownsWithContext } from '~/server/features/scaling/utils/get-countdowns'
+import { CountdownSection } from '../countdown-section'
 
 type Props = NonNullable<ProjectCountdownsWithContext['otherMigration']>
+
 export function OtherMigrationNotice({ expiresAt, reasons }: Props) {
-  const breakpoint = useBreakpoint()
-  const isMobile = breakpoint === 'mobile'
+  const isMobile = useIsMobile()
   return (
-    <div className="border-brand p-4 max-md:border-x-0 max-md:bg-brand/25 max-md:dark:bg-brand/15 md:mt-10 md:rounded-lg md:border-2 md:p-8">
+    <CountdownSection>
       <div className="flex flex-wrap items-center justify-center gap-4">
         <h2 className="mr-auto text-2xl font-bold md:text-3xl">
           Recategorisation
@@ -44,14 +46,13 @@ export function OtherMigrationNotice({ expiresAt, reasons }: Props) {
           </div>
         ))}
       </div>
-      <p className="mt-2.5 text-base font-bold">
-        Learn more about the recategorisation{' '}
-        <CustomLink href={externalLinks.articles.recategorisation}>
-          here
-        </CustomLink>
-        .
-      </p>
-    </div>
+      <CustomLink
+        href={externalLinks.articles.recategorisation}
+        className="mt-2.5 flex items-center gap-1 text-base font-bold"
+      >
+        Learn more about the recategorisation <ArrowRightIcon />
+      </CustomLink>
+    </CountdownSection>
   )
 }
 

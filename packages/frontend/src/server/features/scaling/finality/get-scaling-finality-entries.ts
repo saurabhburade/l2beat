@@ -1,123 +1,123 @@
-import { type Layer2, getCurrentEntry, layer2s } from '@l2beat/config'
-import { UnixTime, notUndefined } from '@l2beat/shared-pure'
+import type {
+  Project,
+  ProjectScalingCategory,
+  ProjectScalingStack,
+  TableReadyValue,
+  WarningWithSentiment,
+} from '@l2beat/config'
+import { groupByScalingTabs } from '~/app/(side-nav)/scaling/_utils/group-by-scaling-tabs'
+import { ps } from '~/server/projects'
+import type { ProjectChanges } from '../../projects-change-report/get-projects-change-report'
+import { getProjectsChangeReport } from '../../projects-change-report/get-projects-change-report'
+import type { CommonScalingEntry } from '../get-common-scaling-entry'
 import { getCommonScalingEntry } from '../get-common-scaling-entry'
-import {
-  type ProjectsLatestTvlUsd,
-  getProjectsLatestTvlUsd,
-} from '../tvl/utils/get-latest-tvl-usd'
+import { getProjectsLatestTvsUsd } from '../tvs/get-latest-tvs-usd'
+import { compareStageAndTvs } from '../utils/compare-stage-and-tvs'
 import { getFinality } from './get-finality'
-import { type FinalityData, type FinalityProjectData } from './schema'
+import type { FinalityProjectData } from './schema'
+import { getFinalitySyncWarning } from './utils/is-finality-synced'
 
-import { groupByTabs } from '~/utils/group-by-tabs'
-import {
-  type ProjectChanges,
-  getProjectsChangeReport,
-} from '../../projects-change-report/get-projects-change-report'
-import { compareStageAndTvl } from '../utils/compare-stage-and-tvl'
-import { getFinalityConfigurations } from './utils/get-finality-configurations'
+export async function getFinalityProjects() {
+  const projects = await ps.getProjects({
+    select: [
+      'statuses',
+      'scalingInfo',
+      'finalityInfo',
+      'finalityConfig',
+      'display',
+    ],
+    optional: ['scalingDa'],
+    where: ['isScaling'],
+    whereNot: ['isUpcoming', 'archivedAt'],
+  })
 
-export type ScalingFinalityEntries = Awaited<
-  ReturnType<typeof getScalingFinalityEntries>
->
+  return projects
+}
+
 export async function getScalingFinalityEntries() {
-  const configurations = getFinalityConfigurations()
-  const [finality, tvl, projectsChangeReport] = await Promise.all([
-    getFinality(configurations),
-    getProjectsLatestTvlUsd(),
+  const projects = await getFinalityProjects()
+
+  const [finality, tvs, projectsChangeReport] = await Promise.all([
+    getFinality(projects),
+    getProjectsLatestTvsUsd(),
     getProjectsChangeReport(),
   ])
 
-  const includedProjects = getIncludedProjects(layer2s, finality)
-
-  const entries = includedProjects
+  const entries = projects
     .map((project) =>
       getScalingFinalityEntry(
         project,
         projectsChangeReport.getChanges(project.id),
         finality[project.id.toString()],
-        tvl,
+        tvs[project.id],
       ),
     )
-    .filter(notUndefined)
-    .sort(compareStageAndTvl)
+    .filter((x) => x !== undefined)
+    .sort(compareStageAndTvs)
 
-  return groupByTabs(entries)
+  return groupByScalingTabs(entries)
 }
 
-function getFinalityData(
+export interface ScalingFinalityEntry extends CommonScalingEntry {
+  category: ProjectScalingCategory
+  stack: ProjectScalingStack | undefined
+  dataAvailabilityMode: TableReadyValue | undefined
+  data: {
+    timeToInclusion: {
+      averageInSeconds: number
+      minimumInSeconds: number | undefined
+      maximumInSeconds: number
+      warning: WarningWithSentiment | undefined
+    }
+    stateUpdateDelay:
+      | {
+          averageInSeconds: number
+          warning: WarningWithSentiment | undefined
+        }
+      | undefined
+    isSynced: boolean
+  }
+  finalizationPeriod: number | undefined
+  tvsOrder: number
+}
+
+function getScalingFinalityEntry(
+  project: Project<
+    'scalingInfo' | 'statuses' | 'finalityInfo' | 'display',
+    'scalingDa'
+  >,
+  changes: ProjectChanges,
   finalityProjectData: FinalityProjectData | undefined,
-  project: Layer2,
-) {
+  tvs: number | undefined,
+): ScalingFinalityEntry | undefined {
   if (!finalityProjectData) {
     return
   }
 
-  const data = {
-    timeToInclusion: {
-      averageInSeconds: finalityProjectData.timeToInclusion.averageInSeconds,
-      minimumInSeconds: finalityProjectData.timeToInclusion.minimumInSeconds,
-      maximumInSeconds: finalityProjectData.timeToInclusion.maximumInSeconds,
-      warning: project.display.finality?.warnings?.timeToInclusion,
-    },
-    stateUpdateDelay: finalityProjectData.stateUpdateDelays
-      ? {
-          averageInSeconds:
-            finalityProjectData.stateUpdateDelays.averageInSeconds,
-          warning: project.display.finality?.warnings?.stateUpdateDelay,
-        }
-      : undefined,
-    syncStatus: {
-      isSynced: isSynced(finalityProjectData.syncedUntil),
-      syncedUntil: finalityProjectData.syncedUntil,
-    },
-  }
+  const syncWarning = getFinalitySyncWarning(finalityProjectData.syncedUntil)
 
-  return data
-}
-
-function isSynced(syncedUntil: number) {
-  return UnixTime.now()
-    .add(-1, 'days')
-    .add(-1, 'hours')
-    .lte(new UnixTime(syncedUntil))
-}
-
-function getIncludedProjects(projects: Layer2[], finality: FinalityData) {
-  return projects.filter(
-    (p) =>
-      !p.isUpcoming &&
-      !p.isArchived &&
-      (p.config.finality ?? finality[p.id.toString()]) &&
-      (p.display.category === 'ZK Rollup' ||
-        p.display.category === 'Optimistic Rollup'),
-  )
-}
-
-export type ScalingFinalityEntry = NonNullable<
-  ReturnType<typeof getScalingFinalityEntry>
->
-function getScalingFinalityEntry(
-  project: Layer2,
-  changes: ProjectChanges,
-  finalityProjectData: FinalityProjectData | undefined,
-  tvl: ProjectsLatestTvlUsd,
-) {
-  const dataAvailability = getCurrentEntry(project.dataAvailability)
-  const data = getFinalityData(finalityProjectData, project)
-  if (!data) {
-    return
-  }
   return {
-    ...getCommonScalingEntry({
-      project,
-      changes,
-      syncStatus: data?.syncStatus,
-    }),
-    category: project.display.category,
-    provider: project.display.provider,
-    dataAvailabilityMode: dataAvailability?.mode,
-    data,
-    finalizationPeriod: project.display.finality?.finalizationPeriod,
-    tvlOrder: tvl[project.id] ?? 0,
+    ...getCommonScalingEntry({ project, changes, syncWarning }),
+    category: project.scalingInfo.type,
+    stack: project.scalingInfo.stack,
+    dataAvailabilityMode: project.scalingDa?.mode,
+    data: {
+      timeToInclusion: {
+        averageInSeconds: finalityProjectData.timeToInclusion.averageInSeconds,
+        minimumInSeconds: finalityProjectData.timeToInclusion.minimumInSeconds,
+        maximumInSeconds: finalityProjectData.timeToInclusion.maximumInSeconds,
+        warning: project.finalityInfo?.warnings?.timeToInclusion,
+      },
+      stateUpdateDelay: finalityProjectData.stateUpdateDelays
+        ? {
+            averageInSeconds:
+              finalityProjectData.stateUpdateDelays.averageInSeconds,
+            warning: project.finalityInfo?.warnings?.stateUpdateDelay,
+          }
+        : undefined,
+      isSynced: !syncWarning,
+    },
+    finalizationPeriod: project.finalityInfo.finalizationPeriod,
+    tvsOrder: tvs ?? -1,
   }
 }

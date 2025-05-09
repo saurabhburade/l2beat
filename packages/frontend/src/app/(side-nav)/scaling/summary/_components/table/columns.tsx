@@ -9,25 +9,32 @@ import {
 } from '~/components/core/tooltip/tooltip'
 import { PizzaRosetteCell } from '~/components/rosette/pizza/pizza-rosette-cell'
 import { StageCell } from '~/components/table/cells/stage/stage-cell'
+import { TableValueCell } from '~/components/table/cells/table-value-cell'
 import { TwoRowCell } from '~/components/table/cells/two-row-cell'
 import {
-  TypeCell,
   TypeExplanationTooltip,
-} from '~/components/table/cells/type-cell'
+  TypeInfo,
+} from '~/components/table/cells/type-info'
 import { ValueWithPercentageChange } from '~/components/table/cells/value-with-percentage-change'
-import { sortStages } from '~/components/table/sorting/functions/stage-sorting'
+import { sortStages } from '~/components/table/sorting/sort-stages'
 import { getScalingCommonProjectColumns } from '~/components/table/utils/common-project-columns/scaling-common-project-columns'
 import { formatActivityCount } from '~/utils/number-format/format-activity-count'
-import { type ScalingSummaryTableRow } from '../../_utils/to-table-rows'
+import { TableLink } from '../../../../../../components/table/table-link'
+import { SyncStatusWrapper } from '../../../finality/_components/table/sync-status-wrapper'
+import type { ScalingSummaryTableRow } from '../../_utils/to-table-rows'
 
 const columnHelper = createColumnHelper<ScalingSummaryTableRow>()
 
 export const scalingSummaryColumns = [
-  ...getScalingCommonProjectColumns(columnHelper),
+  ...getScalingCommonProjectColumns(
+    columnHelper,
+    (row) => `/scaling/projects/${row.slug}`,
+  ),
   columnHelper.display({
     header: 'Risks',
     cell: (ctx) => (
       <PizzaRosetteCell
+        href={`/scaling/risk?tab=${ctx.row.original.tab}&highlight=${ctx.row.original.slug}`}
         values={ctx.row.original.risks}
         isUnderReview={ctx.row.original.statuses?.underReview === 'config'}
       />
@@ -39,7 +46,16 @@ export const scalingSummaryColumns = [
   columnHelper.accessor('category', {
     header: 'Type',
     cell: (ctx) => (
-      <TypeCell provider={ctx.row.original.provider}>{ctx.getValue()}</TypeCell>
+      <TwoRowCell>
+        <TwoRowCell.First>
+          <TypeInfo stack={ctx.row.original.stack}>{ctx.getValue()}</TypeInfo>
+        </TwoRowCell.First>
+        {ctx.row.original.capability === 'appchain' && (
+          <TwoRowCell.Second>
+            {ctx.row.original.purposes.sort().join(', ')}
+          </TwoRowCell.Second>
+        )}
+      </TwoRowCell>
     ),
     meta: {
       tooltip: <TypeExplanationTooltip />,
@@ -48,8 +64,8 @@ export const scalingSummaryColumns = [
   columnHelper.accessor(
     (e) => {
       if (
-        e.stage?.stage === 'NotApplicable' ||
-        e.stage?.stage === 'UnderReview'
+        e.stage.stage === 'NotApplicable' ||
+        e.stage.stage === 'UnderReview'
       ) {
         return undefined
       }
@@ -57,31 +73,33 @@ export const scalingSummaryColumns = [
     },
     {
       id: 'stage',
-      cell: (ctx) => <StageCell stageConfig={ctx.row.original.stage} />,
+      cell: (ctx) => (
+        <StageCell
+          href={`/scaling/projects/${ctx.row.original.slug}#stage`}
+          stageConfig={ctx.row.original.stage}
+          isAppchain={ctx.row.original.capability === 'appchain'}
+          emergencyWarning={ctx.row.original.statuses?.emergencyWarning}
+        />
+      ),
       sortingFn: sortStages,
       sortUndefined: 'last',
-      meta: {
-        hash: 'stage',
-      },
     },
   ),
   columnHelper.accessor(
     (e) => {
-      return e.tvl?.breakdown?.total
+      return e.tvs?.breakdown?.total
     },
     {
       id: 'total',
-      header: 'Total value locked',
+      header: 'Total value secured',
       cell: (ctx) => {
-        const value = ctx.row.original.tvl
-        if (value.breakdown?.total === undefined) {
-          return <NoDataBadge />
-        }
+        const value = ctx.row.original.tvs
 
         return (
           <TotalCell
+            href={`/scaling/tvs?tab=${ctx.row.original.tab}&highlight=${ctx.row.original.slug}`}
             associatedTokenSymbols={value.associatedTokens}
-            tvlWarnings={value.warnings}
+            tvsWarnings={value.warnings}
             breakdown={value.breakdown}
             change={value.change}
           />
@@ -91,7 +109,7 @@ export const scalingSummaryColumns = [
       meta: {
         align: 'right',
         tooltip:
-          'Total Value Locked is calculated as the sum of canonically bridged tokens, externally bridged tokens, and native tokens.',
+          'Total value secured is calculated as the sum of canonically bridged tokens, externally bridged tokens, and native tokens.',
       },
     },
   ),
@@ -102,10 +120,17 @@ export const scalingSummaryColumns = [
       if (!data) {
         return <NoDataBadge />
       }
+
       return (
-        <ValueWithPercentageChange change={data?.change}>
-          {formatActivityCount(ctx.getValue())}
-        </ValueWithPercentageChange>
+        <TableLink
+          href={`/scaling/activity?tab=${ctx.row.original.tab}&highlight=${ctx.row.original.slug}`}
+        >
+          <SyncStatusWrapper isSynced={data.isSynced}>
+            <ValueWithPercentageChange change={data?.change}>
+              {formatActivityCount(ctx.getValue())}
+            </ValueWithPercentageChange>
+          </SyncStatusWrapper>
+        </TableLink>
       )
     },
     sortUndefined: 'last',
@@ -126,16 +151,16 @@ export const scalingSummaryValidiumAndOptimiumsColumns = [
         return <NoDataBadge />
       }
       return (
-        <TwoRowCell>
-          <TwoRowCell.First>{latestValue.layer.value}</TwoRowCell.First>
-          {ctx.row.original.dataAvailability && (
-            <TwoRowCell.Second>
-              {latestValue.bridge.value === 'None'
+        <TableValueCell
+          value={{
+            ...latestValue.layer,
+            secondLine:
+              latestValue.bridge.value === 'None'
                 ? 'No bridge'
-                : latestValue.bridge.value}
-            </TwoRowCell.Second>
-          )}
-        </TwoRowCell>
+                : latestValue.bridge.value,
+          }}
+          href={`/scaling/data-availability?tab=${ctx.row.original.tab}&highlight=${ctx.row.original.slug}`}
+        />
       )
     },
   }),

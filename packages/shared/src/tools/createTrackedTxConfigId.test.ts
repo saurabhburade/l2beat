@@ -1,7 +1,7 @@
 import { EthereumAddress, ProjectId, UnixTime } from '@l2beat/shared-pure'
 import { expect } from 'earl'
 
-import { TrackedTxConfigEntry } from './TrackedTxsConfig'
+import type { TrackedTxConfigEntry } from './TrackedTxsConfig'
 import { createTrackedTxId } from './createTrackedTxConfigId'
 
 describe(createTrackedTxId.name, () => {
@@ -13,12 +13,12 @@ describe(createTrackedTxId.name, () => {
     },
     {
       key: 'sinceTimestamp',
-      newValue: new UnixTime(1),
+      newValue: UnixTime(1),
       shouldUpdateHash: true,
     },
     {
       key: 'untilTimestamp',
-      newValue: new UnixTime(1),
+      newValue: UnixTime(1),
       shouldUpdateHash: false,
     },
     {
@@ -62,14 +62,15 @@ function mock(
 ): Omit<TrackedTxConfigEntry, 'id'> {
   return {
     projectId: ProjectId('project-id'),
-    sinceTimestamp: UnixTime.ZERO,
-    untilTimestamp: UnixTime.ZERO,
+    sinceTimestamp: 0,
+    untilTimestamp: 0,
     subtype: 'stateUpdates',
     type: 'l2costs',
     params: {
       formula: 'functionCall',
       address: EthereumAddress.ZERO,
       selector: 'selector',
+      signature: 'function foo()',
     },
     ...v,
   }

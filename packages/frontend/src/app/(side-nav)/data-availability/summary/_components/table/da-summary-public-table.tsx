@@ -1,22 +1,27 @@
 'use client'
+import { ProjectId } from '@l2beat/shared-pure'
+import type { Row } from '@tanstack/react-table'
+import { getCoreRowModel, getSortedRowModel } from '@tanstack/react-table'
 import {
-  type Row,
-  getCoreRowModel,
-  getSortedRowModel,
-} from '@tanstack/react-table'
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '~/components/core/tooltip/tooltip'
 import { GrissiniCell } from '~/components/rosette/grissini/grissini-cell'
 import { TableCell, TableRow } from '~/components/table/table'
+import { TableLink } from '~/components/table/table-link'
 import { useTable } from '~/hooks/use-table'
-import {
-  type DaBridgeSummaryEntry,
-  type DaSummaryEntry,
+import { UnverifiedIcon } from '~/icons/unverified'
+import type {
+  DaBridgeSummaryEntry,
+  DaSummaryEntry,
 } from '~/server/features/data-availability/summary/get-da-summary-entries'
-import { formatCurrency } from '~/utils/number-format/format-currency'
+import { cn } from '~/utils/cn'
+import { formatDollarValueNumber } from '~/utils/number-format/format-dollar-value-number'
 import {
   BasicDaTable,
   getRowTypeClassNames,
 } from '../../../_components/basic-da-table'
-import { mapBridgeRisksToRosetteValues } from '../../../_utils/map-risks-to-rosette-values'
 import { publicSystemsColumns } from './columns'
 import { ProjectsUsedIn } from './projects-used-in'
 
@@ -26,6 +31,11 @@ export function DaSummaryPublicTable({ items }: { items: DaSummaryEntry[] }) {
     data: items,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    initialState: {
+      columnPinning: {
+        left: ['#', 'logo'],
+      },
+    },
   })
 
   const renderSpanFill = ({ row }: { row: Row<DaSummaryEntry> }) => {
@@ -38,8 +48,12 @@ export function DaSummaryPublicTable({ items }: { items: DaSummaryEntry[] }) {
     return (
       <>
         {remainingBridges.map((bridge) => (
-          <TableRow key={bridge.href} className={getRowTypeClassNames()}>
-            <BridgeCells bridge={bridge} />
+          <TableRow
+            slug={row.original.slug}
+            key={bridge.slug}
+            className={getRowTypeClassNames({ isEthereum: false })}
+          >
+            <BridgeCells layer={row.original} bridge={bridge} />
           </TableRow>
         ))}
       </>
@@ -47,11 +61,11 @@ export function DaSummaryPublicTable({ items }: { items: DaSummaryEntry[] }) {
   }
 
   const renderInlineSpanFill = ({ row }: { row: Row<DaSummaryEntry> }) => {
-    if (row.original.bridges.length === 0) {
+    if (!row.original.bridges[0]) {
       return null
     }
 
-    return <BridgeCells bridge={row.original.bridges[0]!} />
+    return <BridgeCells layer={row.original} bridge={row.original.bridges[0]} />
   }
 
   return (
@@ -64,39 +78,73 @@ export function DaSummaryPublicTable({ items }: { items: DaSummaryEntry[] }) {
 }
 
 function BridgeCells({
+  layer,
   bridge,
 }: {
+  layer: DaSummaryEntry
   bridge: DaBridgeSummaryEntry
-  excludeBridge?: boolean
 }) {
-  const bridgeRisks = mapBridgeRisksToRosetteValues(bridge.risks)
-
+  const isUnverified = bridge.statuses?.verificationWarning === true
   return (
     <>
       <TableCell
-        href={bridge.href}
-        className="text-sm font-medium group-first:pl-0"
+        className={cn(
+          'text-sm font-medium first:pl-0',
+          isUnverified && UNVERIFIED_DA_CLASSNAME,
+        )}
       >
-        <div className="pl-4">{bridge.name}</div>
+        <TableLink
+          href={bridge.href}
+          className="ml-4 flex items-center gap-1.5 md:ml-1"
+        >
+          {bridge.name}
+          {isUnverified && (
+            <Tooltip>
+              <TooltipTrigger>
+                <UnverifiedIcon className="size-3.5 fill-red-300 md:size-4" />
+              </TooltipTrigger>
+              <TooltipContent>
+                This bridge contains unverified contracts.
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </TableLink>
       </TableCell>
       <TableCell
-        href={bridge.href}
-        className="flex items-center justify-center pl-4"
+        className={cn(
+          'flex items-center justify-center pl-4',
+          isUnverified && UNVERIFIED_DA_CLASSNAME,
+        )}
       >
         <GrissiniCell
-          values={bridgeRisks}
-          hasNoBridge={bridge.risks.isNoBridge}
+          values={bridge.risks}
+          href={
+            layer.id === ProjectId.ETHEREUM
+              ? undefined
+              : `/data-availability/risk?tab=${layer.tab}&highlight=${layer.slug}`
+          }
+          disabledOnMobile
         />
       </TableCell>
       <TableCell
-        className="justify-end pr-[30px]  text-sm font-medium md:pr-[42px]"
-        href={bridge.href}
+        className={cn(
+          'pr-[30px] text-sm font-medium md:pr-[42px]',
+          isUnverified && UNVERIFIED_DA_CLASSNAME,
+        )}
+        align="right"
       >
-        {formatCurrency(bridge.tvs, 'usd')}
+        {formatDollarValueNumber(bridge.tvs.latest)}
       </TableCell>
-      <TableCell className="text-sm font-medium">
+      <TableCell
+        className={cn(
+          'text-sm font-medium',
+          isUnverified && UNVERIFIED_DA_CLASSNAME,
+        )}
+      >
         <ProjectsUsedIn usedIn={bridge.usedIn} />
       </TableCell>
     </>
   )
 }
+
+export const UNVERIFIED_DA_CLASSNAME = 'bg-red-100/70 dark:bg-red-900/70'

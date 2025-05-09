@@ -4,14 +4,15 @@ import {
   assert,
   Bytes,
   CoingeckoId,
-  EthereumAddress,
-  Token,
+  type EthereumAddress,
+  type LegacyToken,
 } from '@l2beat/shared-pure'
 import { BigNumber, providers, utils } from 'ethers'
 
 async function loadTokenList() {
-  const { tokenList } = await import('@l2beat/config')
-  return tokenList
+  const { ProjectService } = await import('@l2beat/config')
+  const ps = new ProjectService()
+  return ps.getTokens()
 }
 
 export async function estimateTVL(rpcUrl: string, address: EthereumAddress) {
@@ -76,7 +77,7 @@ async function getBalances(
   provider: providers.JsonRpcBatchProvider,
   address: EthereumAddress,
   blockNumber: number,
-  tokens: Token[],
+  tokens: LegacyToken[],
 ): Promise<
   {
     symbol: string

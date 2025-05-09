@@ -1,12 +1,17 @@
-import { BlobsInBlock } from '@l2beat/shared'
-import { assert, Bytes, EthereumAddress, Hash256 } from '@l2beat/shared-pure'
-import { providers, utils } from 'ethers'
-import { ContractSource } from '../../utils/IEtherscanClient'
+import type { BlobsInBlock } from '@l2beat/shared'
+import {
+  assert,
+  Bytes,
+  type EthereumAddress,
+  type Hash256,
+} from '@l2beat/shared-pure'
+import { type providers, utils } from 'ethers'
+import type { ContractSource } from '../../utils/IEtherscanClient'
 import { bytes32ToAddress } from '../utils/address'
 import { isRevert } from '../utils/isRevert'
-import { BatchingAndCachingProvider } from './BatchingAndCachingProvider'
-import { DebugTransactionCallResponse } from './DebugTransactionTrace'
-import { ContractDeployment, IProvider, RawProviders } from './IProvider'
+import type { BatchingAndCachingProvider } from './BatchingAndCachingProvider'
+import type { DebugTransactionCallResponse } from './DebugTransactionTrace'
+import type { ContractDeployment, IProvider, RawProviders } from './IProvider'
 import { ProviderMeasurement, ProviderStats } from './Stats'
 
 interface AllProviders {
@@ -22,7 +27,6 @@ export class HighLevelProvider implements IProvider {
     readonly chain: string,
     readonly blockNumber: number,
   ) {}
-
   switchBlock(blockNumber: number): IProvider {
     return this.allProviders.get(this.chain, blockNumber)
   }
@@ -286,5 +290,13 @@ export class HighLevelProvider implements IProvider {
 
   getBlobs(txHash: string): Promise<BlobsInBlock> {
     return this.provider.getBlobs(txHash)
+  }
+
+  celestiaBlobExists(height: number, namespace: string, commitment: string) {
+    return this.provider.celestiaBlobExists(height, namespace, commitment)
+  }
+
+  getCelestiaBlockResultLogs(height: number) {
+    return this.provider.getCelestiaBlockResultLogs(height)
   }
 }

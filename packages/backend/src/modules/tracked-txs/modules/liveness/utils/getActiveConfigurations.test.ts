@@ -1,21 +1,25 @@
-import { BackendProject } from '@l2beat/config'
-import { SavedConfiguration, UnixTime } from '@l2beat/shared-pure'
-import { expect, mockObject } from 'earl'
-
 import {
-  TrackedTxConfigEntry,
-  TrackedTxLivenessConfig,
+  type TrackedTxConfigEntry,
+  type TrackedTxLivenessConfig,
   createTrackedTxId,
 } from '@l2beat/shared'
+import {
+  ProjectId,
+  type SavedConfiguration,
+  UnixTime,
+} from '@l2beat/shared-pure'
+import { expect, mockObject } from 'earl'
+import type { TrackedTxProject } from '../../../../../config/Config'
 import { getActiveConfigurations } from './getActiveConfigurations'
 
 describe(getActiveConfigurations.name, () => {
   it('should get active configurations', () => {
     const mockConfigurationId = createTrackedTxId.random()
 
-    const mockedProject = mockObject<BackendProject>({
+    const mockedProject: TrackedTxProject = {
+      id: ProjectId('foo'),
       isArchived: false,
-      trackedTxsConfig: [
+      configurations: [
         mockObject<TrackedTxConfigEntry>({
           id: mockConfigurationId,
           type: 'liveness',
@@ -23,7 +27,7 @@ describe(getActiveConfigurations.name, () => {
           untilTimestamp: UnixTime.now(),
         }),
       ],
-    })
+    }
 
     const mockConfigurations = [
       mockObject<Omit<SavedConfiguration<TrackedTxConfigEntry>, 'properties'>>({
@@ -34,9 +38,8 @@ describe(getActiveConfigurations.name, () => {
     ]
 
     const result = getActiveConfigurations(mockedProject, mockConfigurations)
-
     expect(result).toEqual(
-      mockedProject.trackedTxsConfig as TrackedTxLivenessConfig[],
+      mockedProject.configurations as TrackedTxLivenessConfig[],
     )
   })
 })

@@ -12,9 +12,14 @@ import {
   string,
 } from 'cmd-ts'
 import { getChainConfig, getChainConfigs } from '../config/config.discovery'
-import { DiscoveryChainConfig, DiscoveryModuleConfig } from '../config/types'
+import type {
+  DiscoveryChainConfig,
+  DiscoveryModuleConfig,
+} from '../config/types'
 import { ConfigReader } from '../discovery/config/ConfigReader'
+import { getDiscoveryPaths } from '../discovery/config/getDiscoveryPaths'
 import { dryRunDiscovery, runDiscovery } from '../discovery/runDiscovery'
+import { configureLogger } from './logger'
 import { ChainValue } from './types'
 
 export const DiscoverCommandArgs = {
@@ -111,13 +116,23 @@ export async function discover(
   logger: Logger = Logger.DEBUG,
 ): Promise<void> {
   const http = new HttpClient()
-  const configReader = new ConfigReader()
+  const paths = getDiscoveryPaths()
+  const configReader = new ConfigReader(paths.discovery)
+
+  logger = configureLogger(logger)
 
   if (config.dryRun) {
     logger = logger.for('DryRun')
     logger.info('Starting')
 
-    await dryRunDiscovery(http, configReader, config, chainConfigs)
+    await dryRunDiscovery(
+      paths,
+      http,
+      configReader,
+      config,
+      chainConfigs,
+      logger,
+    )
     return
   }
 
@@ -127,5 +142,5 @@ export async function discover(
       config.chain.name,
     )}`,
   )
-  await runDiscovery(http, configReader, config, chainConfigs)
+  await runDiscovery(paths, http, configReader, config, chainConfigs, logger)
 }

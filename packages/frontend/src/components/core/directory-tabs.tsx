@@ -1,7 +1,9 @@
 'use client'
 
 import * as TabsPrimitive from '@radix-ui/react-tabs'
+import { usePathname } from 'next/navigation'
 import * as React from 'react'
+import { useTracking } from '~/hooks/use-tracking'
 import { cn } from '~/utils/cn'
 import { OverflowWrapper } from './overflow-wrapper'
 
@@ -12,9 +14,43 @@ import { OverflowWrapper } from './overflow-wrapper'
 const DirectoryTabs = ({
   ref,
   defaultValue,
+  onValueChange,
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.Root>) => {
-  return <TabsPrimitive.Root ref={ref} defaultValue={defaultValue} {...props} />
+  const [selectedTab, setSelectedTab] = React.useState(defaultValue)
+  const pathname = usePathname()
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const tab = params.get('tab')
+    if (tab) {
+      setSelectedTab(tab)
+    }
+  }, [])
+
+  const setParams = (tab: string) => {
+    const params = new URLSearchParams(window.location.search)
+    params.set('tab', tab)
+    window.history.replaceState(null, '', `${pathname}?${params.toString()}`)
+  }
+
+  const { track } = useTracking()
+  return (
+    <TabsPrimitive.Root
+      ref={ref}
+      value={selectedTab}
+      onValueChange={(value) => {
+        setParams(value)
+        onValueChange?.(value)
+        setSelectedTab(value)
+        track('directoryTabsChanged', {
+          props: {
+            value,
+          },
+        })
+      }}
+      {...props}
+    />
+  )
 }
 DirectoryTabs.displayName = TabsPrimitive.Root.displayName
 
@@ -64,7 +100,7 @@ const DirectoryTabsContent = ({
   <TabsPrimitive.Content
     ref={ref}
     className={cn(
-      'rounded-xl rounded-tl-none bg-surface-primary px-4 pb-4 pt-3 max-md:rounded-tr-none md:px-6 md:pb-6',
+      'rounded-xl rounded-tl-none bg-surface-primary px-4 pb-4 pt-3 primary-card max-md:rounded-none md:px-6 md:pb-6',
       'ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand',
       className,
     )}

@@ -1,5 +1,5 @@
 import { spawn } from 'child_process'
-import { Response } from 'express'
+import type { Response } from 'express'
 
 function sendSSE(res: Response, data: string) {
   const sanitizedData = data.replace(/\n/g, '\\n')
@@ -19,6 +19,8 @@ export function executeTerminalCommand(command: string, res: Response): void {
       FORCE_COLOR: '1',
     },
   })
+
+  sendSSE(res, `Running command: ${command}\n`)
 
   proc.stdout.on('data', (data) => {
     const text = data.toString()

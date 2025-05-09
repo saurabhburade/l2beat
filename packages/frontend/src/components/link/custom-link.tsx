@@ -1,4 +1,5 @@
-import { type VariantProps, cva } from 'class-variance-authority'
+import type { VariantProps } from 'class-variance-authority'
+import { cva } from 'class-variance-authority'
 import NextLink from 'next/link'
 import React from 'react'
 
@@ -40,9 +41,9 @@ export function CustomLink({
   className,
   ...rest
 }: CustomLinkProps) {
-  const isCustomLink = rest.href.startsWith('http')
+  const isOutLink = rest.href.startsWith('http')
 
-  if (isCustomLink) {
+  if (isOutLink) {
     return (
       <a
         target="_blank"
