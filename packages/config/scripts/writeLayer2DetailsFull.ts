@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import simpleGit from "simple-git";
-import { ScalingProjectTechnologyChoice, layer2s } from "../src";
+import { layer2s } from "../src/processing/layer2s";
 
 // Initialize simple-git
 const git = simpleGit();

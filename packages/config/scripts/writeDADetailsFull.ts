@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import simpleGit from "simple-git";
-import { ScalingProjectTechnologyChoice, layer2s, daLayers } from "../src";
+import { DA_LAYERS } from "../src/common";
 
 // Initialize simple-git
 const git = simpleGit();
@@ -55,9 +55,11 @@ function has24HoursPassed(timestamp: Date) {
   return timeDifference >= twentyFourHoursInMs;
 }
 const main = async () => {
-  const array = daLayers;
+  const array = Object.keys(DA_LAYERS);
+
   for (let index = 0; index < array.length; index++) {
-    const daProvider = array[index];
+    const daProviderId = array[index];
+    const daProvider = DA_LAYERS[daProviderId as keyof typeof DA_LAYERS];
 
     try {
       if (daProvider) {
@@ -67,12 +69,12 @@ const main = async () => {
         );
 
         await saveL2DataToFile(
-          path.join(__dirname, `../data/projects/da/${daProvider.id}.json`),
+          path.join(__dirname, `../data/projects/da/${daProviderId}.json`),
           JSON.stringify(daProvider)
         );
       }
     } catch (error) {
-      console.log("STORE DATA REFRESH ERROR ::: ", daProvider?.id, error);
+      console.log("STORE DATA REFRESH ERROR ::: ", daProviderId, error);
     }
   }
 };
