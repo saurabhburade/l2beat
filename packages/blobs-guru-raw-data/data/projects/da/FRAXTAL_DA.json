@@ -1,0 +1,1 @@
+{"value":"FraxtalDA","sentiment":"warning","description":"The data is posted to FraxtalDA which is a separate data availability module developed by the Frax Core Team. Data is posted off chain, and only hashes of blob data are published on an onchain inbox."}
