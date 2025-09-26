@@ -1,30 +1,35 @@
 import { ProjectService } from '@l2beat/config'
 import { assert } from '@l2beat/shared-pure'
-import { createBridgePlugins } from './index'
+import { createBridgePlugins } from '.'
+import { definedNetworks } from './types'
 
 describe('Plugins', async () => {
+  const chainNames = new Set<string>()
   const plugins = createBridgePlugins()
-  const chainsWithRpc = new Set<string>()
 
   before(async () => {
     const ps = new ProjectService()
     const projects = await ps.getProjects({ select: ['chainConfig'] })
     for (const p of projects) {
-      if (p.chainConfig.apis.find((a) => a.type === 'rpc')) {
-        chainsWithRpc.add(p.chainConfig.name)
+      chainNames.add(p.chainConfig.name)
+    }
+  })
+
+  describe('matchTypes check', () => {
+    for (const plugin of plugins) {
+      if (plugin.match) {
+        it(plugin.name, () => {
+          assert(plugin.matchTypes, `matchTypes missing for ${plugin.name}`)
+        })
       }
     }
   })
 
-  for (const plugin of plugins) {
-    describe(plugin.name, () => {
-      const chains = plugin.chains
+  for (const { protocol, chains } of definedNetworks) {
+    describe(protocol, () => {
       for (const chain of chains) {
         it(chain, () => {
-          assert(
-            chainsWithRpc.has(chain),
-            `${chain}: unknown chain, update plugin.chains`,
-          )
+          assert(chainNames.has(chain), `Unknown chain name: ${chain}`)
         })
       }
     })

@@ -22,6 +22,13 @@ model Stake {
   thresholdStake Float  @db.Real
 }
 
+model DaBeatStats {
+  id                 String @id @db.VarChar(255)
+  totalStake         Float  @db.Real
+  thresholdStake     Float  @db.Real
+  numberOfValidators Int?
+}
+
 model Activity {
   projectId String   @db.VarChar(255)
   timestamp DateTime @db.Timestamp(6)
@@ -415,4 +422,20 @@ model BridgeTransfer {
 
   @@id([messageId])
   @@index([type])
+}
+
+model EcosystemToken {
+  projectId                 String   @db.VarChar(255)
+  coingeckoId               String   @db.VarChar(255)
+  configurationId           String   @db.VarChar(12)
+  priceUsd                  Float    @db.Real
+  price7dChange             Float    @db.Real
+  marketCapUsd              Float    @db.Real
+  marketCap7dChange         Float    @db.Real
+  circulatingSupply         Float    @db.Real
+  circulatingSupply7dChange Float    @db.Real
+  timestamp                 DateTime @db.Timestamp(6)
+
+  @@id([projectId, coingeckoId, configurationId])
+  @@index([projectId])
 }

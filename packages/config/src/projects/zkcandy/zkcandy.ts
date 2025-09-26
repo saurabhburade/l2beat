@@ -1,4 +1,4 @@
-import { EthereumAddress, UnixTime } from '@l2beat/shared-pure'
+import { EthereumAddress, ProjectId, UnixTime } from '@l2beat/shared-pure'
 import {
   DA_BRIDGES,
   DA_LAYERS,
@@ -29,6 +29,7 @@ export const zkcandy: ScalingProject = zkStackL2({
       "zkCandy is a Gaming Validium built on ZKsync's ZK stack for the next generation of GameFi - Supercharged by iCandy, the largest game developer in ANZ and SEA.",
     links: {
       websites: ['https://zkcandy.io', 'https://icandy.io/'],
+      bridges: ['https://bridge.zkcandy.io/'],
       socialMedia: [
         'https://twitter.com/zkCandyHQ',
         'https://discord.gg/zkcandy',
@@ -47,7 +48,7 @@ export const zkcandy: ScalingProject = zkStackL2({
       {
         type: 'rpc',
         url: 'https://rpc.zkcandy.io',
-        callsPerMinute: 1500,
+        callsPerMinute: 300,
       },
     ],
   },
@@ -180,6 +181,9 @@ export const zkcandy: ScalingProject = zkStackL2({
       },
     },
   ],
+  ecosystemInfo: {
+    id: ProjectId('the-elastic-network'),
+  },
   milestones: [
     {
       title: 'Mainnet Launch',

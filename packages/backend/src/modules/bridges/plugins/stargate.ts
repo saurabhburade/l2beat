@@ -4,6 +4,8 @@ import {
   type BridgePlugin,
   createBridgeEventType,
   createEventParser,
+  defineNetworks,
+  findChain,
   type LogToCapture,
 } from './types'
 
@@ -21,6 +23,7 @@ export const StargateV2OFTSentBusRode = createBridgeEventType<{
   amountSentLD: string
   amountReceivedLD: string
   amountSD: string
+  $dstChain: string
 }>('stargate-v2.OFTSentBus')
 
 export const StargateV2OFTSentTaxi = createBridgeEventType<{
@@ -28,6 +31,7 @@ export const StargateV2OFTSentTaxi = createBridgeEventType<{
   amountSentLD: string
   amountReceivedLD: string
   tokenAddress: EthereumAddress | 'native'
+  $dstChain: string
 }>('stargate-v2.OFTSentTaxi')
 
 const parseOFTReceived = createEventParser(
@@ -41,6 +45,7 @@ export const StargateV2OFTReceived = createBridgeEventType<{
   tokenAddress: EthereumAddress | 'native'
   destinationEid: number
   amountReceivedLD: string
+  $srcChain: string
 }>('stargate-v2.OFTReceived')
 
 const parseBusDriven = createEventParser(
@@ -51,13 +56,14 @@ export const StargateV2BusDriven = createBridgeEventType<{
   numPassengers: number
   guid: string
   destinationEid: number
+  $dstChain: string
 }>('stargate-v2.BusDriven')
 
 const parseBusRode = createEventParser(
   'event BusRode(uint32 dstEid, uint72 ticketId, uint80 fare, bytes passenger)',
 )
 
-const NETWORKS = [
+const STARGATE_NETWORKS = defineNetworks('stargate', [
   {
     chain: 'ethereum',
     eid: 30101,
@@ -115,17 +121,16 @@ const NETWORKS = [
       '0x5634c4a5FEd09819E3c46D86A965Dd9447d86e47',
     ),
   },
-]
+])
 
 const GUID_ZERO =
   '0x0000000000000000000000000000000000000000000000000000000000000000'
 
 export class StargatePlugin implements BridgePlugin {
   name = 'stargate'
-  chains = ['ethereum', 'arbitrum', 'base']
 
   capture(input: LogToCapture) {
-    const network = NETWORKS.find((b) => b.chain === input.ctx.chain)
+    const network = STARGATE_NETWORKS.find((b) => b.chain === input.ctx.chain)
     if (!network) {
       return
     }
@@ -159,6 +164,11 @@ export class StargatePlugin implements BridgePlugin {
               amountSentLD: oftSent.amountSentLD.toString(),
               amountReceivedLD: oftSent.amountReceivedLD.toString(),
               amountSD: passenger.amountSD.toString(),
+              $dstChain: findChain(
+                STARGATE_NETWORKS,
+                (x) => x.eid,
+                oftSent.dstEid,
+              ),
             })
           }
         }
@@ -168,6 +178,7 @@ export class StargatePlugin implements BridgePlugin {
         amountSentLD: oftSent.amountSentLD.toString(),
         amountReceivedLD: oftSent.amountReceivedLD.toString(),
         tokenAddress: pool.tokenAddress,
+        $dstChain: findChain(STARGATE_NETWORKS, (x) => x.eid, oftSent.dstEid),
       })
     }
 
@@ -182,7 +193,7 @@ export class StargatePlugin implements BridgePlugin {
       if (!pool) {
         return
       }
-      const destinationEid = NETWORKS.find(
+      const destinationEid = STARGATE_NETWORKS.find(
         (n) => n.chain === input.ctx.chain,
       )?.eid
       if (!destinationEid) {
@@ -196,6 +207,11 @@ export class StargatePlugin implements BridgePlugin {
         tokenAddress: pool.tokenAddress,
         destinationEid,
         amountReceivedLD: oftReceived.amountReceivedLD.toString(),
+        $srcChain: findChain(
+          STARGATE_NETWORKS,
+          (x) => x.eid,
+          oftReceived.srcEid,
+        ),
       })
     }
 
@@ -206,6 +222,7 @@ export class StargatePlugin implements BridgePlugin {
         numPassengers: busDriven.numPassengers,
         guid: busDriven.guid,
         destinationEid: busDriven.dstEid,
+        $dstChain: findChain(STARGATE_NETWORKS, (x) => x.eid, busDriven.dstEid),
       })
     }
   }

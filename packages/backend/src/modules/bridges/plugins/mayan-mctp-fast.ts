@@ -7,40 +7,41 @@ import {
   type BridgePlugin,
   createBridgeEventType,
   createEventParser,
+  findChain,
   type LogToCapture,
   type MatchResult,
   Result,
 } from './types'
-import { NETWORKS } from './wormhole'
+import { WORMHOLE_NETWORKS } from './wormhole'
 
 const parseOrderFulfilled = createEventParser(
   'event OrderFulfilled(uint32 sourceDomain, bytes32 sourceNonce, uint256 amount)',
 )
 
 export const OrderFulfilled = createBridgeEventType<{
-  txHash: string
   amount: string
-  sourceDomain: string
-}>('mayan-mctp-fast.OrderFullfilled')
+  $srcChain: string
+}>('mayan-mctp-fast.OrderFulfilled')
 
 export class MayanMctpFastPlugin implements BridgePlugin {
   name = 'mayan-mctp-fast'
-  chains = ['ethereum', 'arbitrum', 'base']
 
   capture(input: LogToCapture) {
     const orderFulfilled = parseOrderFulfilled(input.log, null)
     if (orderFulfilled) {
+      const $srcChain = findChain(
+        WORMHOLE_NETWORKS,
+        (x) => x.wormholeChainId,
+        Number(orderFulfilled.sourceDomain),
+      )
       return OrderFulfilled.create(input.ctx, {
-        txHash: input.ctx.txHash,
         amount: orderFulfilled.amount.toString(),
-        sourceDomain:
-          NETWORKS.find(
-            (n) => n.wormholeChainId === Number(orderFulfilled.sourceDomain),
-          )?.chain || '???',
+        $srcChain,
       })
     }
   }
 
+  matchTypes = [OrderFulfilled]
   match(
     orderFulfilled: BridgeEvent,
     db: BridgeEventDb,
@@ -49,7 +50,7 @@ export class MayanMctpFastPlugin implements BridgePlugin {
     // find MessageReceived with the same txHash as OrderFulfilled
     const messageReceived = db.find(CCTPv2MessageReceived, {
       app: 'TokenMessengerV2',
-      txHash: orderFulfilled.args.txHash,
+      sameTxBefore: orderFulfilled,
     })
     if (!messageReceived || !messageReceived.args.hookData) return
     // find MessageSent with the same body as MessageReceived

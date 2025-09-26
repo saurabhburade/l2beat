@@ -116,20 +116,29 @@ export interface LogToCapture {
 
 export type MatchResult = (BridgeMessage | BridgeTransfer)[]
 
+export type BridgeEventQuery<T> = Partial<T> & {
+  ctx?: Partial<BridgeEventContext>
+  sameTxBefore?: BridgeEvent
+  sameTxAfter?: BridgeEvent
+}
+
 export interface BridgeEventDb {
   find<T>(
     type: BridgeEventType<T>,
-    query?: Partial<T>,
+    query: BridgeEventQuery<T>,
   ): BridgeEvent<T> | undefined
-  findAll<T>(type: BridgeEventType<T>, query?: Partial<T>): BridgeEvent<T>[]
+  findAll<T>(
+    type: BridgeEventType<T>,
+    query: BridgeEventQuery<T>,
+  ): BridgeEvent<T>[]
 }
 
 export interface BridgePlugin {
   name: string
-  chains: string[]
   capture?: (
     input: LogToCapture,
   ) => BridgeEvent | undefined | Promise<BridgeEvent | undefined>
+  matchTypes?: BridgeEventType<unknown>[]
   match?: (
     event: BridgeEvent,
     db: BridgeEventDb,
@@ -196,7 +205,7 @@ function Message(
     kind: 'BridgeMessage',
     type,
     src: events[0],
-    dst: events[0],
+    dst: events[1],
   }
 }
 
@@ -244,4 +253,27 @@ function Transfer(
       tokenAmount: options.dstAmount,
     },
   }
+}
+
+export const definedNetworks: { protocol: string; chains: string[] }[] = []
+export function defineNetworks<T extends { chain: string }>(
+  protocol: string,
+  networks: T[],
+): T[] {
+  definedNetworks.push({
+    protocol,
+    chains: networks.map((x) => x.chain),
+  })
+  return networks
+}
+
+export function findChain<C extends { chain: string }, P>(
+  networks: C[],
+  getProperty: (network: C) => P,
+  propertyValue: P,
+): string {
+  return (
+    networks.find((n) => getProperty(n) === propertyValue)?.chain ??
+    `Unknown_${propertyValue}`
+  )
 }
