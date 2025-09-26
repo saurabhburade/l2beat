@@ -66,6 +66,77 @@ const main = async () => {
           path.join(__dirname, `../data/projects/layer2s/${layer2.id}.json`),
           JSON.stringify(layer2)
         );
+        if (layer2?.config?.daTracking) {
+          for (
+            let index = 0;
+            index < layer2?.config?.daTracking.length;
+            index++
+          ) {
+            const daelement = layer2?.config?.daTracking[index];
+            if (
+              daelement?.type === "ethereum" &&
+              daelement.sequencers?.length &&
+              daelement.sequencers?.length > 0
+            ) {
+              for (
+                let index = 0;
+                index < daelement.sequencers.length;
+                index++
+              ) {
+                const seqelement = daelement.sequencers[index];
+                await saveL2DataToFile(
+                  path.join(
+                    __dirname,
+                    `../data/projects/with-da-id/${daelement?.daLayer}/${
+                      daelement?.type
+                    }/${seqelement?.toLowerCase()}.json`
+                  ),
+                  JSON.stringify(layer2)
+                );
+              }
+            }
+            if (
+              daelement?.type === "avail" &&
+              daelement.appIds?.length &&
+              daelement.appIds?.length > 0
+            ) {
+              for (let index = 0; index < daelement.appIds.length; index++) {
+                const appId = daelement.appIds[index];
+                await saveL2DataToFile(
+                  path.join(
+                    __dirname,
+                    `../data/projects/with-da-id/${daelement?.daLayer}/${
+                      daelement?.type
+                    }/${appId?.toLowerCase()}.json`
+                  ),
+                  JSON.stringify(layer2)
+                );
+              }
+            }
+            if (daelement?.type === "celestia" && daelement.namespace) {
+              await saveL2DataToFile(
+                path.join(
+                  __dirname,
+                  `../data/projects/with-da-id/${daelement?.daLayer}/${
+                    daelement?.type
+                  }/${daelement.namespace?.toLowerCase()}.json`
+                ),
+                JSON.stringify(layer2)
+              );
+            }
+            if (daelement?.type === "eigen-da" && daelement.customerId) {
+              await saveL2DataToFile(
+                path.join(
+                  __dirname,
+                  `../data/projects/with-da-id/${daelement?.daLayer}/${
+                    daelement?.type
+                  }/${daelement.customerId?.toLowerCase()}.json`
+                ),
+                JSON.stringify(layer2)
+              );
+            }
+          }
+        }
       }
     } catch (error) {
       console.log("STORE DATA REFRESH ERROR ::: ", layer2?.id, error);
