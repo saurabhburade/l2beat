@@ -1,15 +1,15 @@
 import type { Database, InteropEventRecord } from '@l2beat/database'
 import type { UnixTime } from '@l2beat/shared-pure'
-import { InMemoryEventDb } from './InMemoryEventDb'
 import {
   Address32,
   type InteropEvent,
   type InteropEventDb,
   type InteropEventQuery,
   type InteropEventType,
-} from './plugins/types'
+} from '../../plugins/types'
+import { InMemoryEventDb } from './InMemoryEventDb'
 
-export class InteropStore implements InteropEventDb {
+export class InteropEventStore implements InteropEventDb {
   private eventDb = new InMemoryEventDb()
 
   constructor(private db: Database) {}
@@ -91,8 +91,9 @@ function fromDbRecord(record: InteropEventRecord): InteropEvent {
       logIndex: record.logIndex,
       timestamp: record.timestamp,
       txHash: record.txHash,
-      value: record.value,
+      txValue: record.value,
       txTo: record.txTo ? Address32.from(record.txTo) : undefined,
+      txData: record.calldata,
     },
   }
 }
@@ -110,8 +111,9 @@ function toDbRecord(event: InteropEvent): InteropEventRecord {
     logIndex: event.ctx.logIndex,
     timestamp: event.ctx.timestamp,
     txHash: event.ctx.txHash,
-    value: event.ctx.value,
+    value: event.ctx.txValue,
     txTo: event.ctx.txTo,
+    calldata: event.ctx.txData,
     matched: false,
     unsupported: false,
   }
