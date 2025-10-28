@@ -1,8 +1,6 @@
 import type { Env } from '@l2beat/backend-tools'
 import { type ChainConfig, ProjectService } from '@l2beat/config'
-import { compiledToSqlQuery, type LogEvent } from '@l2beat/database'
 import type { UnixTime } from '@l2beat/shared-pure'
-import { createLogger } from '../tools/createLogger'
 import type { Config } from './Config'
 import { getChainConfig } from './chain/getChainConfig'
 import { FeatureFlags } from './FeatureFlags'
@@ -35,6 +33,9 @@ export async function makeConfig(
   const chains = (await ps.getProjects({ select: ['chainConfig'] })).map(
     (p) => p.chainConfig,
   )
+  const activeChains = (
+    await ps.getProjects({ select: ['chainConfig'], whereNot: ['archivedAt'] })
+  ).map((p) => p.chainConfig)
   const isReadonly = env.boolean(
     'READONLY',
     // if we connect locally to production db, we want to be readonly!
@@ -60,9 +61,7 @@ export async function makeConfig(
               ? { rejectUnauthorized: false }
               : undefined,
           },
-          log: env.boolean('ENABLE_QUERY_LOGGING', false)
-            ? makeDatabaseLogger(env)
-            : undefined,
+          enableQueryLogging: env.boolean('ENABLE_QUERY_LOGGING', false),
           connectionPoolSize: {
             // defaults used by knex
             min: 2,
@@ -71,9 +70,7 @@ export async function makeConfig(
           isReadonly,
         }
       : {
-          log: env.boolean('ENABLE_QUERY_LOGGING', false)
-            ? makeDatabaseLogger(env)
-            : undefined,
+          enableQueryLogging: env.boolean('ENABLE_QUERY_LOGGING', false),
           connection: {
             connectionString: env.string('DATABASE_URL'),
             application_name: env.string('DATABASE_APP_NAME', 'BE-PROD'),
@@ -185,7 +182,7 @@ export async function makeConfig(
       },
       config: {
         enabled: flags.isEnabled('interop', 'config'),
-        chains: chains
+        chains: activeChains
           .filter((c) => c.chainId !== undefined)
           .map((c) => ({ id: c.chainId as number, name: c.name })),
       },
@@ -203,41 +200,4 @@ function getEthereumMinTimestamp(chains: ChainConfig[]) {
     throw new Error('Missing minBlockTimestamp for ethereum')
   }
   return minBlockTimestamp
-}
-
-function makeDatabaseLogger(env: Env) {
-  const indexPrefix =
-    env.optionalString('DEPLOYMENT_ENV') === 'staging'
-      ? 'database-staging'
-      : 'database-prod'
-  const logger = createLogger(env, { indexPrefix })
-
-  return (event: LogEvent) => {
-    if (event.level === 'error') {
-      logger.error('Query failed', {
-        durationMs: event.queryDurationMillis,
-        error: event.error,
-        source: 'backend',
-        sql: compiledToSqlQuery(event.query),
-        ...(env.optionalString('NODE_ENV') === 'production'
-          ? {
-              sqlTemplate: event.query.sql,
-              parameters: event.query.parameters,
-            }
-          : {}),
-      })
-    } else {
-      logger.info('Query executed', {
-        durationMs: event.queryDurationMillis,
-        source: 'backend',
-        sql: compiledToSqlQuery(event.query),
-        ...(env.optionalString('NODE_ENV') === 'production'
-          ? {
-              sqlTemplate: event.query.sql,
-              parameters: event.query.parameters,
-            }
-          : {}),
-      })
-    }
-  }
 }
