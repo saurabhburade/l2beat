@@ -68,6 +68,7 @@ export interface InteropEvent<T = unknown> {
   plugin: string
   eventId: string
   type: string
+  direction?: 'incoming' | 'outgoing'
   expiresAt: UnixTime
   ctx: InteropEventContext
   args: T
@@ -87,6 +88,8 @@ export interface TransferSide {
   event: InteropEvent
   tokenAddress?: Address32
   tokenAmount?: bigint
+  wasBurned?: boolean
+  wasMinted?: boolean
 }
 
 export interface InteropTransfer {
@@ -129,7 +132,7 @@ export interface InteropEventType<T> {
 
 export function createInteropEventType<T>(
   type: string,
-  options?: { ttl?: number },
+  options?: { ttl?: number; direction?: 'incoming' | 'outgoing' },
 ): InteropEventType<T> {
   if (!/\w+\.\w+/.test(type)) {
     throw new Error(
@@ -173,6 +176,7 @@ export function createInteropEventType<T>(
       return {
         eventId: generateId('evt'),
         type,
+        ...(options?.direction ? { direction: options.direction } : {}),
         expiresAt: ctx.timestamp + ttl,
         ctx,
         args,
@@ -321,10 +325,12 @@ export interface InteropTransferOptions {
   srcEvent: InteropEvent
   srcTokenAddress?: Address32
   srcAmount?: bigint
+  srcWasBurned?: boolean
 
   dstEvent: InteropEvent
   dstTokenAddress?: Address32
   dstAmount?: bigint
+  dstWasMinted?: boolean
 
   extraEvents?: InteropEvent[]
 }
@@ -350,11 +356,13 @@ function Transfer(
       event: options.srcEvent,
       tokenAddress: options.srcTokenAddress,
       tokenAmount: options.srcAmount,
+      wasBurned: options.srcWasBurned,
     },
     dst: {
       event: options.dstEvent,
       tokenAddress: options.dstTokenAddress,
       tokenAmount: options.dstAmount,
+      wasMinted: options.dstWasMinted,
     },
   }
 }
