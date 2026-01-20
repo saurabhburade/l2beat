@@ -1,34 +1,41 @@
 import type { Project } from '@l2beat/config'
 import type { AggregatedInteropTransferRecord } from '@l2beat/database'
-import { assert } from '@l2beat/shared-pure'
+import { assert, notUndefined } from '@l2beat/shared-pure'
 import groupBy from 'lodash/groupBy'
+import { getStaticAsset } from '~/server/features/utils/getProjectIcon'
+import { getLogger } from '~/server/utils/logger'
 
 export type TokenData = {
   id: string
   symbol: string
-  iconUrl: string | null
+  iconUrl: string
   volume: number
 }
 
+type CommonProtocolEntry = {
+  iconSlug: string
+  protocolName: string
+}
+
+export type NonMintingProtocolEntry = CommonProtocolEntry & {
+  volume: number
+}
+
+export type LockAndMintProtocolEntry = CommonProtocolEntry & {
+  volume: number
+  tokens: TokenData[]
+  averageDuration: number
+}
+
+export type OmniChainProtocolEntry = CommonProtocolEntry & {
+  volume: number
+  tokens: TokenData[]
+}
+
 export type ProtocolsByType = {
-  nonMinting: {
-    iconSlug: string
-    protocolName: string
-    volume: number
-  }[]
-  lockMint: {
-    iconSlug: string
-    protocolName: string
-    volume: number
-    tokens: TokenData[]
-    averageDuration: number
-  }[]
-  omniChain: {
-    iconSlug: string
-    protocolName: string
-    volume: number
-    tokens: TokenData[]
-  }[]
+  nonMinting: NonMintingProtocolEntry[]
+  lockAndMint: LockAndMintProtocolEntry[]
+  omniChain: OmniChainProtocolEntry[]
 }
 
 export function getProtocolsByType(
@@ -36,6 +43,7 @@ export function getProtocolsByType(
   tokensDetailsMap: Map<string, { symbol: string; iconUrl: string | null }>,
   interopProjects: Project<'interopConfig'>[],
 ): ProtocolsByType {
+  const logger = getLogger().for('getProtocolsByType')
   const protocolsDataMap = new Map<
     string,
     {
@@ -72,17 +80,21 @@ export function getProtocolsByType(
     (p) => p.interopConfig.bridgeType,
   )
 
-  const nonMintingData = Array.from(protocolsDataMap.entries()).filter(
-    ([key]) => protocolsByType.nonMinting?.some((p) => p.id === key),
+  const protocolsData = Array.from(protocolsDataMap.entries()).sort(
+    (a, b) => b[1].volume - a[1].volume,
   )
-  const mintLockData = Array.from(protocolsDataMap.entries()).filter(([key]) =>
-    protocolsByType.canonical?.some((p) => p.id === key),
+
+  const nonMintingData = protocolsData.filter(([key]) =>
+    protocolsByType.nonMinting?.some((p) => p.id === key),
   )
-  const omniChainData = Array.from(protocolsDataMap.entries()).filter(([key]) =>
+  const lockAndMintData = protocolsData.filter(([key]) =>
+    protocolsByType.lockAndMint?.some((p) => p.id === key),
+  )
+  const omniChainData = protocolsData.filter(([key]) =>
     protocolsByType.omnichain?.some((p) => p.id === key),
   )
 
-  const getProjectCommon = (key: string) => {
+  const getProjectCommon = (key: string): CommonProtocolEntry => {
     const project = interopProjects.find((p) => p.id === key)
     assert(project, `Project not found: ${key}`)
     return {
@@ -95,14 +107,22 @@ export function getProtocolsByType(
     return Array.from(tokens.entries())
       .map(([tokenId, volume]) => {
         const tokenDetails = tokensDetailsMap.get(tokenId)
-        assert(tokenDetails, `Token details not found for token id: ${tokenId}`)
+
+        if (!tokenDetails) {
+          logger.warn(`Token not found: ${tokenId}`)
+          return undefined
+        }
+
         return {
           id: tokenId,
           symbol: tokenDetails.symbol,
-          iconUrl: tokenDetails.iconUrl,
+          iconUrl:
+            tokenDetails.iconUrl ??
+            getStaticAsset('/images/token-placeholder.png'),
           volume,
         }
       })
+      .filter(notUndefined)
       .toSorted((a, b) => b.volume - a.volume)
   }
 
@@ -113,7 +133,7 @@ export function getProtocolsByType(
         volume,
       }
     }),
-    lockMint: mintLockData.map(
+    lockAndMint: lockAndMintData.map(
       ([key, { volume, tokens, transferCount, totalDurationSum }]) => {
         return {
           ...getProjectCommon(key),

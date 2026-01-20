@@ -1,20 +1,19 @@
 import { getCoreRowModel } from '@tanstack/react-table'
 import { BasicTable, type BasicTableRow } from '~/components/table/BasicTable'
 import { useTable } from '~/hooks/useTable'
-import type { InteropDashboardData } from '~/server/features/scaling/interop/getInteropDashboardData'
-import { lockMintColumns } from './columns'
+import type { LockAndMintProtocolEntry } from '~/server/features/scaling/interop/utils/getProtocolsByType'
+import { lockAndMintColumns } from './columns'
 
-export type LockMintRow =
-  InteropDashboardData['protocolsByType']['lockMint'][number] & BasicTableRow
+export type LockAndMintRow = LockAndMintProtocolEntry & BasicTableRow
 
-export function LockMintTable({
+export function LockAndMintTable({
   entries,
 }: {
-  entries: InteropDashboardData['protocolsByType']['lockMint'] | undefined
+  entries: LockAndMintProtocolEntry[] | undefined
 }) {
-  const table = useTable<LockMintRow>({
+  const table = useTable<LockAndMintRow>({
     data: entries ?? [],
-    columns: lockMintColumns,
+    columns: lockAndMintColumns,
     getCoreRowModel: getCoreRowModel(),
     enableSorting: false,
     manualFiltering: true,
