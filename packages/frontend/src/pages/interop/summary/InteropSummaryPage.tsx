@@ -1,10 +1,11 @@
-import type { InteropChain } from '@l2beat/config'
 import { type DehydratedState, HydrationBoundary } from '@tanstack/react-query'
 import { MainPageHeader } from '~/components/MainPageHeader'
 import type { AppLayoutProps } from '~/layouts/AppLayout'
 import { AppLayout } from '~/layouts/AppLayout'
 import { SideNavLayout } from '~/layouts/SideNavLayout'
 import { ChainSelector } from './components/chain-selector/ChainSelector'
+import type { InteropChainWithIcon } from './components/chain-selector/types'
+import { AllProtocolsCard } from './components/table-widgets/AllProtocolsCard'
 import { LockAndMintCard } from './components/table-widgets/LockAndMintCard'
 import { NonMintingCard } from './components/table-widgets/NonMintingCard'
 import { OmniChainCard } from './components/table-widgets/OmniChainCard'
@@ -16,7 +17,7 @@ import { InteropSelectedChainsProvider } from './utils/InteropSelectedChainsCont
 
 interface Props extends AppLayoutProps {
   queryState: DehydratedState
-  interopChains: InteropChain[]
+  interopChains: InteropChainWithIcon[]
 }
 
 export function InteropSummaryPage({
@@ -48,6 +49,7 @@ export function InteropSummaryPage({
               <NonMintingCard />
               <LockAndMintCard />
               <OmniChainCard />
+              <AllProtocolsCard />
             </div>
           </InteropSelectedChainsProvider>
         </SideNavLayout>
