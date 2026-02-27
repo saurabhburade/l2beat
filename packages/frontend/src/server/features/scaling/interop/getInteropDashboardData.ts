@@ -103,6 +103,7 @@ async function getMockInteropDashboardData(): Promise<InteropDashboardData> {
       minTransferValueUsd: 8_500,
       maxTransferValueUsd: 12_000,
       netMintedValue: undefined,
+      flows: [],
     },
     {
       id: 'usdc01',
@@ -117,6 +118,7 @@ async function getMockInteropDashboardData(): Promise<InteropDashboardData> {
       minTransferValueUsd: 9_500,
       maxTransferValueUsd: 10_500,
       netMintedValue: undefined,
+      flows: [],
     },
   ]
 

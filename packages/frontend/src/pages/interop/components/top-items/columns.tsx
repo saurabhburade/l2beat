@@ -14,6 +14,7 @@ import { EM_DASH } from '~/consts/characters'
 import type { AverageDuration } from '~/server/features/scaling/interop/types'
 import { formatCurrency } from '~/utils/number-format/formatCurrency'
 import { AvgDurationCell } from '../table/AvgDurationCell'
+import { type TokenFlowDisplayData, TokenFlowsCell } from './TokenFlowsCell'
 
 export type TopItem = {
   id?: string
@@ -27,6 +28,7 @@ export type TopItem = {
   minTransferValueUsd?: number
   maxTransferValueUsd?: number
   netMintedValue?: number
+  flows?: TokenFlowDisplayData[]
 }
 export type TopItemType = 'tokens' | 'chains'
 
@@ -180,6 +182,20 @@ export const getTopItemsColumns = (
         )
       },
     }),
+    itemType === 'tokens' &&
+      columnHelper.accessor(
+        (row) => row.flows?.reduce((acc, flow) => acc + flow.volume, 0) ?? 0,
+        {
+          id: 'flows',
+          header: 'Flows',
+          cell: (ctx) => {
+            const flows = ctx.row.original.flows
+            if (!flows || flows.length === 0) return EM_DASH
+
+            return <TokenFlowsCell flows={flows} />
+          },
+        },
+      ),
     showNetMintedValueColumn &&
       columnHelper.accessor('netMintedValue', {
         header: 'Last 24h net\nminted value',
