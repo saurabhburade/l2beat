@@ -21,6 +21,7 @@ export function SummaryPage() {
               <Link to="/events">Open events</Link>
             </Button>
             <Button asChild variant="outline">
+              <Link to="/messages">Open messages</Link>
               <Link to="/known-apps">Open known apps</Link>
             </Button>
             <Button asChild variant="outline">
