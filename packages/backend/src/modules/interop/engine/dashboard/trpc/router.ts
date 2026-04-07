@@ -1,4 +1,5 @@
 import type { inferRouterInputs, inferRouterOutputs } from '@trpc/server'
+import { createAnomaliesRouter } from './routers/anomalies'
 import { createChainsRouter } from './routers/chains'
 import { createEventsRouter } from './routers/events'
 import { createKnownAppsRouter } from './routers/knownApps'
@@ -11,6 +12,7 @@ export function createInteropTrpcRouter(deps: {
   getExplorerUrl: (chain: string) => string | undefined
 }) {
   return router({
+    anomalies: createAnomaliesRouter(),
     chains: createChainsRouter(deps),
     events: createEventsRouter(),
     knownApps: createKnownAppsRouter(),

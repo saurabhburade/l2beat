@@ -11,6 +11,10 @@ import type { InteropSyncersManager } from '../sync/InteropSyncersManager'
 import { renderAnomaliesPage } from './AnomaliesPage'
 import { renderAnomalyIdPage } from './AnomalyIdPage'
 import { renderAggregatesPage } from './aggregates/AggregatesPage'
+import {
+  MINIMUM_SIDE_VALUE_USD_THRESHOLD,
+  VALUE_DIFF_THRESHOLD_PERCENT,
+} from './anomalies/constants'
 import { renderEventsPage } from './EventsPage'
 import { getInteropEventsByType } from './impls/events'
 import { getMemoryUsage } from './impls/memory'
@@ -114,8 +118,6 @@ export function createInteropRouter(
     if (ctx.query.raw === 'true') {
       ctx.body = explored
     } else {
-      const VALUE_DIFF_THRESHOLD_PERCENT = 15
-      const MINIMUM_SIDE_VALUE_USD_THRESHOLD = 50
       const suspiciousTransfers =
         await db.interopTransfer.getValueMismatchTransfers(
           VALUE_DIFF_THRESHOLD_PERCENT,
