@@ -4,6 +4,7 @@ import { SidebarProvider } from './components/core/Sidebar'
 import { Toaster } from './components/core/Sonner'
 import { EventDetailsPage } from './pages/events/EventDetailsPage'
 import { EventsPage } from './pages/events/EventsPage'
+import { KnownAppsPage } from './pages/known-apps/KnownAppsPage'
 import { MissingTokensPage } from './pages/missing-tokens/MissingTokensPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { StatusPage } from './pages/status/StatusPage'
@@ -25,6 +26,8 @@ export function App() {
 
             <Route path="/events" element={<EventsPage />} />
             <Route path="/events/:kind/:type" element={<EventDetailsPage />} />
+
+            <Route path="/known-apps" element={<KnownAppsPage />} />
 
             <Route path="/transfers" element={<TransfersPage />} />
             <Route path="/transfers/:type" element={<TransferDetailsPage />} />
