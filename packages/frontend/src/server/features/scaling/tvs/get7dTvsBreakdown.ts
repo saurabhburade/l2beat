@@ -88,7 +88,7 @@ export async function get7dTvsBreakdown(
       tvsProjects.map((p) => p.projectId),
       [from - 7 * UnixTime.DAY, to],
       {
-        excludeAssociated: params.excludeAssociatedTokens ?? false,
+        excludeAssociatedTokens: params.excludeAssociatedTokens ?? false,
         excludeRwaRestrictedTokens: params.excludeRwaRestrictedTokens ?? true,
       },
     ),
@@ -132,6 +132,7 @@ export async function get7dTvsBreakdown(
       other: latestOther,
       associated: latestAssociated,
     } = lastValue
+    const canonical = latestCanonical + latestCustomCanonical
 
     const additionalTrustAssumptionsPercentage =
       getAdditionalTrustAssumptionsPercentage({
@@ -146,7 +147,7 @@ export async function get7dTvsBreakdown(
         breakdown: {
           total: latestValue,
           native: latestNative,
-          canonical: latestCanonical,
+          canonical: canonical,
           external: latestExternal,
           ether: latestEther,
           stablecoin: latestStablecoin,
@@ -205,8 +206,6 @@ export async function get7dTvsBreakdown(
       other: oldestOther,
       associated: oldestAssociated,
     } = sevenDaysAgoValue
-
-    const canonical = latestCanonical + latestCustomCanonical
     const sevenDaysAgoCanonical = oldestCanonical + oldestCustomCanonical
 
     projects[projectId] = {
@@ -353,7 +352,6 @@ async function getMockTvsBreakdownData(
           breakdown: {
             total: 60,
             canonical: 30,
-            customCanonical: 10,
             native: 20,
             external: 10,
             ether: 30,
@@ -367,7 +365,6 @@ async function getMockTvsBreakdownData(
           breakdown7d: {
             total: 50,
             canonical: 25,
-            customCanonical: 5,
             native: 15,
             external: 10,
             ether: 25,
@@ -381,7 +378,6 @@ async function getMockTvsBreakdownData(
           change: {
             total: 0.4,
             canonical: 0.5,
-            customCanonical: 0.25,
             native: 0.25,
             external: 0.25,
             ether: 0.25,
