@@ -111,6 +111,9 @@ importers:
       ethers:
         specifier: ^5.7.2
         version: 5.7.2
+      jose:
+        specifier: 5.10.0
+        version: 5.10.0
       koa:
         specifier: ^2.14.1
         version: 2.16.0
@@ -6204,6 +6207,9 @@ packages:
   jiti@2.4.2:
     resolution: {integrity: sha512-rg9zJN+G4n2nfJl5MW3BMygZX56zKPNVEYYqq7adpmMh4Jn2QNEwhvQlFy6jPVdcod7txZtKHWnyZiA3a0zP7A==}
     hasBin: true
+
+  jose@5.10.0:
+    resolution: {integrity: sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==}
 
   jose@6.1.0:
     resolution: {integrity: sha512-TTQJyoEoKcC1lscpVDCSsVgYzUDg/0Bt3WE//WiTPK6uOCQC2KZS4MpugbMWt/zyjkopgZoXhZuCi00gLudfUA==}
@@ -13659,6 +13665,8 @@ snapshots:
   jiti@1.21.6: {}
 
   jiti@2.4.2: {}
+
+  jose@5.10.0: {}
 
   jose@6.1.0: {}
 
