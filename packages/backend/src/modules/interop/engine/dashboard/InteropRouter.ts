@@ -64,6 +64,7 @@ export function createInteropRouter(
       {
         db,
         getExplorerUrl: config.dashboard.getExplorerUrl,
+        syncersManager,
         getProcessorStatuses: () => getProcessorsStatus(processors),
         dashboard: config.dashboard,
       },
