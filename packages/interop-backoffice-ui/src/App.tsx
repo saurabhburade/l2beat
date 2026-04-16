@@ -6,6 +6,7 @@ import { AggregatesPage } from './pages/aggregates/AggregatesPage'
 import { AnomaliesPage } from './pages/anomalies/AnomaliesPage'
 import { AnomalyDetailsPage } from './pages/anomalies/AnomalyDetailsPage'
 import { SuspiciousTransfersPage } from './pages/anomalies/SuspiciousTransfersPage'
+import { CoveragePiesPage } from './pages/coverage-pies/CoveragePiesPage'
 import { EventDetailsPage } from './pages/events/EventDetailsPage'
 import { EventsPage } from './pages/events/EventsPage'
 import { FinancialActionsPage } from './pages/financials/FinancialActionsPage'
@@ -62,6 +63,10 @@ export function App() {
             <Route
               path="/insights/anomalies/suspicious-transfers"
               element={<SuspiciousTransfersPage />}
+            />
+            <Route
+              path="/insights/coverage-pies"
+              element={<CoveragePiesPage />}
             />
             <Route path="/insights/memory" element={<MemoryPage />} />
             <Route path="/not-found" element={<NotFoundPage />} />
