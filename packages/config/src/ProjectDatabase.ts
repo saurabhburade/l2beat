@@ -67,7 +67,6 @@ const schema = {
   contracts: 'TEXT',
   discoveryInfo: 'TEXT',
 
-  isScaling: 'BOOLEAN',
   isDaLayer: 'BOOLEAN',
   isUpcoming: 'BOOLEAN',
   archivedAt: 'INTEGER',
