@@ -40,6 +40,7 @@ export function getSearchBarProjectEntries<
     | 'zkCatalogInfo'
     | 'contracts'
     | 'permissions'
+    | 'aliases'
   >,
 >(project: T, allProjects: T[]): SearchBarProjectEntry[] {
   const results: SearchBarProjectEntry[] = []
@@ -54,7 +55,12 @@ export function getSearchBarProjectEntries<
     return []
   }
 
-  const commonTags = dedupeTags([project.slug, project.name, project.shortName])
+  const commonTags = dedupeTags([
+    project.slug,
+    project.name,
+    project.shortName,
+    ...(project.aliases ?? []),
+  ])
 
   const common = {
     type: 'project',
