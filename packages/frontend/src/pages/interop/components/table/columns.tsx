@@ -19,6 +19,7 @@ import { InteropNoDataBadge } from '../InteropNoDataBadge'
 import { TopTokensCell } from '../tokens/TopTokensCell'
 import { AvgDurationCell } from './AvgDurationCell'
 import { BridgeTypeBadge } from './BridgeTypeBadge'
+import { InteropProjectNameTooltip } from './InteropProjectNameTooltip'
 import { SubgroupTooltip } from './SubgroupTooltip'
 import { TransferCountCell } from './transfer-count-cell/TransferCountCell'
 
@@ -65,7 +66,7 @@ function getCommonColumns(getProtocolHref?: (slug: string) => string) {
           </TwoRowCell>
         )
 
-        return env.CLIENT_SIDE_INTEROP_DETAILED_PAGES ? (
+        const content = env.CLIENT_SIDE_INTEROP_DETAILED_PAGES ? (
           <TableLink
             href={
               getProtocolHref?.(ctx.row.original.slug) ??
@@ -76,6 +77,15 @@ function getCommonColumns(getProtocolHref?: (slug: string) => string) {
           </TableLink>
         ) : (
           nameCell
+        )
+
+        return (
+          <InteropProjectNameTooltip
+            projectName={ctx.row.original.name}
+            description={ctx.row.original.description}
+          >
+            {content}
+          </InteropProjectNameTooltip>
         )
       },
       meta: {
