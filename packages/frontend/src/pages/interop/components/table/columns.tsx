@@ -15,9 +15,11 @@ import { EM_DASH } from '~/consts/characters'
 import { env } from '~/env'
 import type { ProtocolEntry } from '~/server/features/scaling/interop/types'
 import { formatCurrency } from '~/utils/number-format/formatCurrency'
+import { InteropNoDataBadge } from '../InteropNoDataBadge'
 import { TopTokensCell } from '../tokens/TopTokensCell'
 import { AvgDurationCell } from './AvgDurationCell'
 import { BridgeTypeBadge } from './BridgeTypeBadge'
+import { InteropProjectNameTooltip } from './InteropProjectNameTooltip'
 import { SubgroupTooltip } from './SubgroupTooltip'
 import { TransferCountCell } from './transfer-count-cell/TransferCountCell'
 
@@ -64,7 +66,7 @@ function getCommonColumns(getProtocolHref?: (slug: string) => string) {
           </TwoRowCell>
         )
 
-        return env.CLIENT_SIDE_INTEROP_DETAILED_PAGES ? (
+        const content = env.CLIENT_SIDE_INTEROP_DETAILED_PAGES ? (
           <TableLink
             href={
               getProtocolHref?.(ctx.row.original.slug) ??
@@ -75,6 +77,15 @@ function getCommonColumns(getProtocolHref?: (slug: string) => string) {
           </TableLink>
         ) : (
           nameCell
+        )
+
+        return (
+          <InteropProjectNameTooltip
+            projectName={ctx.row.original.name}
+            description={ctx.row.original.description}
+          >
+            {content}
+          </InteropProjectNameTooltip>
         )
       },
       meta: {
@@ -87,11 +98,14 @@ function getCommonColumns(getProtocolHref?: (slug: string) => string) {
 
 const last24hVolumeColumn = columnHelper.accessor('volume', {
   header: 'Last 24h\nVolume',
-  cell: (ctx) => (
-    <span className="font-medium text-label-value-15">
-      {formatCurrency(ctx.row.original.volume, 'usd')}
-    </span>
-  ),
+  cell: (ctx) => {
+    if (!ctx.row.original.volume) return EM_DASH
+    return (
+      <span className="font-medium text-label-value-15">
+        {formatCurrency(ctx.row.original.volume, 'usd')}
+      </span>
+    )
+  },
   meta: {
     align: 'right',
     headClassName: 'text-2xs text-right',
@@ -112,7 +126,8 @@ const averageInFlightValueColumn = columnHelper.accessor(
         'The average USD value of funds in transit at any given second over the past 24 hours.',
     },
     cell: (ctx) => {
-      if (ctx.row.original.averageValueInFlight === undefined) return EM_DASH
+      if (ctx.row.original.averageValueInFlight === undefined)
+        return <InteropNoDataBadge />
       return (
         <span className="font-medium text-label-value-15">
           {formatCurrency(ctx.row.original.averageValueInFlight, 'usd')}
@@ -208,7 +223,8 @@ export function getAllProtocolsColumns(
             'The average time it takes for a transfer to be received on the destination chain, measured over the past 24 hours.',
         },
         cell: (ctx) => {
-          if (ctx.row.original.averageDuration === null) return EM_DASH
+          if (ctx.row.original.averageDuration === null)
+            return <InteropNoDataBadge />
           return (
             <AvgDurationCell
               averageDuration={ctx.row.original.averageDuration}
@@ -286,13 +302,15 @@ export function getAllProtocolsColumns(
           tooltip:
             "The USD value of tokens minted through the protocol minus the USD value of tokens that were bridged back, or burned. It represents the net USD value added to the protocol's total value locked.",
         },
-        cell: (ctx) => (
-          <span className="font-medium text-label-value-15">
-            {ctx.row.original.netMintedValue
-              ? formatCurrency(ctx.row.original.netMintedValue, 'usd')
-              : EM_DASH}
-          </span>
-        ),
+        cell: (ctx) => {
+          if (ctx.row.original.netMintedValue === undefined)
+            return <InteropNoDataBadge />
+          return (
+            <span className="font-medium text-label-value-15">
+              {formatCurrency(ctx.row.original.netMintedValue, 'usd')}
+            </span>
+          )
+        },
       }),
     columnHelper.accessor('tokens', {
       header: 'Tokens\nby volume',
