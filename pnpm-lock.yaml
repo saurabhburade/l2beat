@@ -733,6 +733,9 @@ importers:
       '@radix-ui/react-checkbox':
         specifier: ^1.1.0
         version: 1.1.2(@types/react-dom@19.0.4(@types/react@19.0.10))(@types/react@19.0.10)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@radix-ui/react-collapsible':
+        specifier: 1.1.1
+        version: 1.1.1(@types/react-dom@19.0.4(@types/react@19.0.10))(@types/react@19.0.10)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@radix-ui/react-dialog':
         specifier: 1.1.2
         version: 1.1.2(@types/react-dom@19.0.4(@types/react@19.0.10))(@types/react@19.0.10)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -921,6 +924,9 @@ importers:
 
   packages/protocolbeat:
     dependencies:
+      '@l2beat/shared-pure':
+        specifier: workspace:*
+        version: link:../shared-pure
       '@l2beat/validate':
         specifier: workspace:*
         version: link:../validate
@@ -1296,6 +1302,9 @@ importers:
 
   packages/tools:
     dependencies:
+      '@l2beat/shared-pure':
+        specifier: workspace:*
+        version: link:../shared-pure
       '@l2beat/tools-api':
         specifier: workspace:*
         version: link:../tools-api

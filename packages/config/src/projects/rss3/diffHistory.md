@@ -1,3 +1,100 @@
+Generated with discovered.json: 0xe49019bc82d031bfda4fa1cd1c40077d0e0d7810
+
+# Diff at Mon, 27 Apr 2026 14:38:42 GMT:
+
+- author: vincfurc (<vincfurc@users.noreply.github.com>)
+- comparing to: main@bbeac755425cc0dab000cb7f8f3fa390682be9b7 block: 1760307209
+- current timestamp: 1777300652
+
+## Description
+
+**RSS3 has [announced the retirement of VSL](https://rss3.io/blog/the-next-stage-of-rss3.html) and is migrating to Ethereum.** On 2026-04-24 the L2 stopped producing blocks (last VSL block at 08:59 UTC), the L1 sequencer inbox went silent (last batch at 05:24 UTC), and the batcher EOA was swept to the RSS3 Multisig. VSL bridge withdrawals are paused; pending withdrawals will be completed as part of the migration and $RSS3 on VSL will be claimable on Ethereum via a portal in the coming weeks. Added a `redWarning` and incident milestone on the project.
+
+**L1StandardBridge — operator sweep added and used** (on-chain upgrade, new implementation `0x12665984...` deployed 2026-04-17 and activated before the halt). The new impl sets `operator = RSS3Multisig (0x8AC80fa0)` and exposes an operator-only `sweep(token, to, amount)` that transfers any ERC-20 held by the bridge to an arbitrary address with no withdrawal proof or delay. On 2026-04-22 06:29 UTC (block 24933678) the operator used this to move the full bridge escrow to the RSS3 Multisig in a single batched sweep: ~464,630,520 RSS3, 1,023 USDC, 284 USDT, and 0.84 WETH. Mirrors the pre-existing OptimismPortal `operator = WithdrawalOverwriterMultisig` (which can rewrite withdrawal calldata on finalization).
+
+**SystemConfig modeling fix** (no on-chain upgrade — same impl `0x164883d4...` as before). With the L2 halted, the batcher's last 10 outgoing txs include 3 consolidation transfers into the RSS3 Multisig (one of 33.45 ETH), dropping its top-address ratio to 7/10 = 0.70. That trips the standard `opStackSequencerInbox` handler's 80% qualification threshold, which derives `sequencerInbox` from the batcher's tx pattern, so the field errored out. Fixed via a new `opstack/SystemConfig_rss3` template variant (scoped to RSS3's SystemConfig via `validAddresses`) that hardcodes `sequencerInbox` to `0xfFFF...12553` — the pre-halt discovered value, matching RSS3's chainId 12553 under the standard OP Stack predeploy convention and consistent with 47/50 (94%) of the batcher's outgoing txs over a 50-tx window going to that address.
+
+L1StandardBridge: [diff](https://disco.l2beat.com/diff/eth:0xE27083804bFf17Ec05f4300a43b7c40F3E01e486/eth:0x12665984Ba38943C74D8504d4E8a41a96dE25E83)
+
+## Watched changes
+
+```diff
+    contract ProxyAdmin (eth:0x1075B29e5F7a911128C77F3989702E150C988904) {
+    +++ description: None
+      directlyReceivedPermissions.3.role:
+-        ".$admin"
++        "admin"
+      directlyReceivedPermissions.3.description:
+-        "upgrading the bridge implementation can give access to all funds escrowed therein."
+    }
+```
+
+```diff
+    contract L1StandardBridge (eth:0x4cbab69108Aa72151EDa5A3c164eA86845f18438) {
+    +++ description: The main entry point to deposit ERC20 tokens from host chain to this chain. RSS3 is retiring VSL: this fork of the L1StandardBridge adds an operator-only sweep(token, to, amount) that transfers any ERC-20 held by the bridge to an arbitrary address, with no withdrawal proof or delay.
+      template:
+-        "opstack/L1StandardBridge"
+      sourceHashes.1:
+-        "0x6799eb37a55a04ec21fc5819a2f479c30a69b3e79258d12ac41c10342b9f76b1"
++        "0x4940bd1f0459679a56c4724a92058ea37f085b3bd72df87063c6c3f5b4381f5d"
+      values.$implementation:
+-        "eth:0xE27083804bFf17Ec05f4300a43b7c40F3E01e486"
++        "eth:0x12665984Ba38943C74D8504d4E8a41a96dE25E83"
+      values.operator:
++        "eth:0x8AC80fa0993D95C9d6B8Cb494E561E6731038941"
+      implementationNames.eth:0xE27083804bFf17Ec05f4300a43b7c40F3E01e486:
+-        "L1StandardBridge"
+      implementationNames.eth:0x12665984Ba38943C74D8504d4E8a41a96dE25E83:
++        "L1StandardBridge"
+      category:
+-        {"name":"Canonical Bridges","priority":2}
+    }
+```
+
+```diff
+    contract RSS3Multisig (eth:0x8AC80fa0993D95C9d6B8Cb494E561E6731038941) {
+    +++ description: None
+      receivedPermissions.0:
++        {"permission":"interact","from":"eth:0x4cbab69108Aa72151EDa5A3c164eA86845f18438","description":"can call sweep(token, to, amount) to transfer any ERC-20 held by the L1StandardBridge to an arbitrary address — the mechanism RSS3 is using to move bridge escrow during the VSL → Ethereum migration.","role":".operator"}
+      receivedPermissions.3.role:
+-        ".$admin"
++        "admin"
+      receivedPermissions.3.description:
+-        "upgrading the bridge implementation can give access to all funds escrowed therein."
+    }
+```
+
+## Source code changes
+
+```diff
+.../L1StandardBridge/L1StandardBridge.sol             | 19 ++++++++++++++-----
+ 1 file changed, 14 insertions(+), 5 deletions(-)
+```
+
+## Config/verification related changes
+
+Following changes come from updates made to the config file,
+or/and contracts becoming verified, not from differences found during
+discovery. Values are for block 1760307209 (main branch discovery), not current.
+
+```diff
+    contract L1StandardBridge (eth:0x4cbab69108Aa72151EDa5A3c164eA86845f18438) {
+    +++ description: The main entry point to deposit ERC20 tokens from host chain to this chain. RSS3 is retiring VSL: this fork of the L1StandardBridge adds an operator-only sweep(token, to, amount) that transfers any ERC-20 held by the bridge to an arbitrary address, with no withdrawal proof or delay.
+      description:
+-        "The main entry point to deposit ERC20 tokens from host chain to this chain."
++        "The main entry point to deposit ERC20 tokens from host chain to this chain. RSS3 is retiring VSL: this fork of the L1StandardBridge adds an operator-only sweep(token, to, amount) that transfers any ERC-20 held by the bridge to an arbitrary address, with no withdrawal proof or delay."
+    }
+```
+
+```diff
+    contract SystemConfig (eth:0x80e73D6BfC73c567032304C3891a06c2d9954d09) {
+    +++ description: Contains configuration parameters such as the Sequencer address, gas limit on this chain and the unsafe block signer address.
+      template:
+-        "opstack/SystemConfig"
++        "opstack/SystemConfig_rss3"
+    }
+```
+
 Generated with discovered.json: 0x8fcd1236fe0bb02124f1863b1987ea1275be0273
 
 # Diff at Sun, 12 Oct 2025 22:14:34 GMT:
