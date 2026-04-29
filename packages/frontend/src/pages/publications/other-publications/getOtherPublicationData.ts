@@ -1,17 +1,17 @@
 import { getAppLayoutProps } from '~/common/getAppLayoutProps'
 import type { CollectionEntry } from '~/content/getCollection'
-import { getGovernancePublicationEntry } from '~/pages/publications/governance/utils/getGovernancePublicationEntry'
+import { getOtherPublicationEntry } from '~/pages/publications/other-publications/utils/getOtherPublicationEntry'
 import { getMetadata } from '~/ssr/head/getMetadata'
 import type { RenderData } from '~/ssr/types'
 import type { Manifest } from '~/utils/Manifest'
 
-export async function getGovernancePublicationData(
+export async function getOtherPublicationData(
   manifest: Manifest,
-  publicationEntry: CollectionEntry<'governance-publications'>,
+  publicationEntry: CollectionEntry<'other-publications'>,
   url: string,
 ): Promise<RenderData> {
   const appLayoutProps = await getAppLayoutProps()
-  const publication = getGovernancePublicationEntry(publicationEntry)
+  const publication = getOtherPublicationEntry(publicationEntry)
   return {
     head: {
       manifest,

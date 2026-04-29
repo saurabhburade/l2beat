@@ -3,10 +3,8 @@ import { getCollectionEntry } from '~/content/getCollection'
 import { formatPublicationDate } from '~/utils/dates'
 import type { ImageParams } from '~/utils/project/getImageParams'
 import { getImageParams } from '~/utils/project/getImageParams'
-import type { GovernanceAuthorEntry } from './getGovernanceAuthorEntry'
-import { getGovernanceAuthorEntry } from './getGovernanceAuthorEntry'
 
-export interface GovernancePublicationEntry {
+export interface OtherPublicationEntry {
   id: string
   thumbnail: ImageParams
   title: string
@@ -14,18 +12,29 @@ export interface GovernancePublicationEntry {
   description: string | undefined
   excerpt: string | undefined
   readTimeInMinutes: number
-  author: GovernanceAuthorEntry
+  author: {
+    id: string
+    avatar: ImageParams
+    firstName: string
+    lastName: string
+    role: string | undefined
+  }
   publishedOn: string
   content: string
-  tag: 'governance'
+  tag: CollectionEntry<'other-publications'>['data']['tag']
 }
 
-export function getGovernancePublicationEntry(
-  post: CollectionEntry<'governance-publications'>,
-): GovernancePublicationEntry {
+export function getOtherPublicationEntry(
+  post: CollectionEntry<'other-publications'>,
+): OtherPublicationEntry {
   const author = getCollectionEntry('authors', post.data.authorId)
   if (!author) {
     throw new Error(`Author not found for ${post.id}`)
+  }
+
+  const avatar = getImageParams(`/images/avatars/${author.id}.png`)
+  if (!avatar) {
+    throw new Error(`Avatar not found for ${author.id}`)
   }
 
   const thumbnail = getImageParams(`/meta-images/publications/${post.id}.png`)
@@ -43,7 +52,13 @@ export function getGovernancePublicationEntry(
     excerpt: post.excerpt,
     readTimeInMinutes: post.readTimeInMinutes,
     publishedOn: formatPublicationDate(post.data.publishedOn),
-    author: getGovernanceAuthorEntry(author),
-    tag: 'governance',
+    author: {
+      id: author.id,
+      avatar,
+      firstName: author.data.firstName,
+      lastName: author.data.lastName,
+      role: author.data.role,
+    },
+    tag: post.data.tag,
   }
 }
