@@ -27,6 +27,8 @@ export interface Actions {
   applyStoredLayout: (saved: StoredNodeLayout, mode: ApplyLayoutMode) => void
   hideSelected: () => void
   hideUnknowns: () => void
+  hideUnreachable: () => void
+  showUnreachable: () => void
   showHidden: () => void
   clear: () => void
   selectAndFocus: (selected: string) => void
