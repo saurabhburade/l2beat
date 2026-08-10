@@ -1,0 +1,10 @@
+version: "1"
+rules:
+  - base: main
+    upstream: l2beat:main
+    mergeMethod: merge
+    mergeUnstable: false
+    conflictReviewers:
+      - saurabhburade
+label: "automerge"
+conflictLabel: "merge-conflict"

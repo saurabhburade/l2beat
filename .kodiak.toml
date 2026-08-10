@@ -1,0 +1,3 @@
+version = 1
+merge.automerge_label = ["dependencies", "automerge"]
+usernames = ["dependabot", "github-actions"]

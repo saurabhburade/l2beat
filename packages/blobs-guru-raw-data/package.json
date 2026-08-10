@@ -1,0 +1,21 @@
+{
+  "name": "@l2beat/blobs-guru-raw-data",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build:dependencies": "cd ../.. && pnpm build:dependencies:config",
+    "format": "pnpm --dir ../.. exec biome format packages/blobs-guru-raw-data/scripts/writeDADetailsFull.ts packages/blobs-guru-raw-data/scripts/writeLayer2DetailsFull.ts",
+    "format:fix": "pnpm --dir ../.. exec biome format --write packages/blobs-guru-raw-data/scripts/writeDADetailsFull.ts packages/blobs-guru-raw-data/scripts/writeLayer2DetailsFull.ts",
+    "lint": "pnpm --dir ../.. exec biome check --formatter-enabled=false packages/blobs-guru-raw-data/scripts/writeDADetailsFull.ts packages/blobs-guru-raw-data/scripts/writeLayer2DetailsFull.ts",
+    "lint:fix": "pnpm --dir ../.. exec biome check --formatter-enabled=false --write packages/blobs-guru-raw-data/scripts/writeDADetailsFull.ts packages/blobs-guru-raw-data/scripts/writeLayer2DetailsFull.ts",
+    "typecheck": "tsc --noEmit",
+    "DA-details-full": "pnpm --dir ../.. exec tsx packages/blobs-guru-raw-data/scripts/writeDADetailsFull.ts",
+    "layer2-details-full": "pnpm --dir ../.. exec tsx packages/blobs-guru-raw-data/scripts/writeLayer2DetailsFull.ts"
+  },
+  "dependencies": {
+    "@l2beat/config": "workspace:*"
+  },
+  "devDependencies": {
+    "@l2beat/typescript-config": "workspace:*"
+  }
+}
