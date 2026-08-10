@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/@biomejs/biome/configuration_schema.json",
+  "root": false,
+  "extends": ["../../../biome.json"],
+  "files": {
+    "includes": [
+      "scripts/writeDADetailsFull.ts",
+      "scripts/writeLayer2DetailsFull.ts",
+      "package.json",
+      "tsconfig.json",
+      "biome.json"
+    ]
+  }
+}

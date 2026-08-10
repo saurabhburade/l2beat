@@ -361,6 +361,16 @@ importers:
         specifier: ^5.4.10
         version: 5.4.10(@types/node@22.8.2)(lightningcss@1.30.1)(terser@5.36.0)
 
+  packages/blobs-guru-raw-data:
+    dependencies:
+      '@l2beat/config':
+        specifier: workspace:*
+        version: link:../config
+    devDependencies:
+      '@l2beat/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+
   packages/config:
     dependencies:
       '@l2beat/discovery':

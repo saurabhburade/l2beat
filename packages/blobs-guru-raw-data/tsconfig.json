@@ -1,0 +1,8 @@
+{
+  "extends": "@l2beat/typescript-config/base",
+  "compilerOptions": {
+    "noEmit": true,
+    "noUncheckedIndexedAccess": false
+  },
+  "include": ["scripts/writeDADetailsFull.ts", "scripts/writeLayer2DetailsFull.ts"]
+}
