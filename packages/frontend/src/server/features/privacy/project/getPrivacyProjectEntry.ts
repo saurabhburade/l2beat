@@ -8,6 +8,8 @@ import type { ProjectId } from '@l2beat/shared-pure'
 import type { ProjectLink } from '~/components/projects/links/types'
 import type { BadgeWithParams } from '~/components/projects/ProjectBadge'
 import type { ProjectDetailsSection } from '~/components/projects/sections/types'
+import { getGardenCropsSection } from '~/server/features/garden/getGardenCropsSection'
+import { getUpdatesSectionProps } from '~/server/features/projects/discovery-updates/getUpdatesSectionProps'
 import { countRecentDiscoveryUpdates } from '~/server/features/projects/recent-changes/discoveryUpdates'
 import { ps } from '~/server/projects'
 import type { SsrHelpers } from '~/trpc/server'
@@ -139,6 +141,11 @@ export async function getPrivacyProjectEntry(
   const discoveryUpdates = details.discoveryUpdates ?? []
 
   const sections: ProjectDetailsSection[] = []
+
+  const gardenCropsSection = getGardenCropsSection(details.crops)
+  if (gardenCropsSection) {
+    sections.push(gardenCropsSection)
+  }
 
   if (details.detailedDescription) {
     sections.push({
@@ -274,7 +281,11 @@ export async function getPrivacyProjectEntry(
       props: {
         id: 'updates',
         title: 'Updates',
-        updates: discoveryUpdates,
+        ...(await getUpdatesSectionProps(
+          helpers,
+          details.id,
+          discoveryUpdates,
+        )),
       },
     })
   }
