@@ -1031,7 +1031,6 @@ export type ProjectDefiCategory =
   | 'Liquid Staking'
   | 'Oracle'
   | 'Stablecoin'
-  | 'Liquid Staking'
   | 'Prediction market'
 
 export interface ProjectDefiInfo {
@@ -1204,6 +1203,19 @@ export type PrivacyFlowExtractorConfig =
       params: {
         amount: string
       }
+    }
+  | {
+      /**
+       * Standard ERC-20 Transfer(from, to, value) emitted by the token
+       * contract, with amount = value. For pools whose own events carry no
+       * amount: a deposit is a transfer to the pool, a withdrawal a transfer
+       * from it. At least one filter is required and both are applied
+       * server-side as indexed-topic filters.
+       */
+      extractor: 'erc20Transfer'
+      params:
+        | { from: EthereumAddress; to?: EthereumAddress }
+        | { from?: EthereumAddress; to: EthereumAddress }
     }
   | {
       extractor: 'privacyPoolsValue'
