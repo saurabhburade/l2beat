@@ -3,9 +3,7 @@ import {
   createColumnHelper,
   getCoreRowModel,
   getSortedRowModel,
-  type SortingState,
 } from '@tanstack/react-table'
-import { useState } from 'react'
 import { NoDataBadge } from '~/components/badge/NoDataBadge'
 import { NotApplicableBadge } from '~/components/badge/NotApplicableBadge'
 import { PercentChange } from '~/components/PercentChange'
@@ -26,10 +24,12 @@ import {
 } from '~/components/table/sorting/sortTableValues'
 import { TableLink } from '~/components/table/TableLink'
 import { useTable } from '~/hooks/useTable'
+import { ANONYMITY_SET_WINDOW_DAYS } from '~/server/features/privacy/anonymity-set/calculateAnonymitySets'
 import type { PrivacySummaryEntry } from '~/server/features/privacy/getPrivacySummaryEntries'
 import { PrivacyAdversaryDots } from '../../adversaries/PrivacyAdversaryDots'
 import { getPrivacyAdversariesTableValue } from '../../adversaries/privacyAdversaryUi'
 import { PRIVACY_ASSESSMENT } from '../../privacyAssessment'
+import { AnonymitySetCell } from './AnonymitySetCell'
 import { DotWithLabel } from './DotWithLabel'
 import { PrivacyAssessmentCell } from './PrivacyAssessmentCell'
 import { PrivacyTrustedSetupCell } from './PrivacyTrustedSetupCell'
@@ -161,6 +161,27 @@ const columns = [
     },
   }),
   columnHelper.accessor(
+    (entry) =>
+      entry.anonymitySet.status === 'available'
+        ? entry.anonymitySet.value
+        : undefined,
+    {
+      id: 'anonymitySet',
+      header: `${ANONYMITY_SET_WINDOW_DAYS}D anon. set`,
+      cell: (ctx) => (
+        <AnonymitySetCell
+          anonymitySet={ctx.row.original.anonymitySet}
+          projectName={ctx.row.original.name}
+        />
+      ),
+      sortUndefined: 'last',
+      meta: {
+        align: 'right',
+        tooltip: `Largest configured anonymity set: unique deposit senders during the last ${ANONYMITY_SET_WINDOW_DAYS} complete UTC days.`,
+      },
+    },
+  ),
+  columnHelper.accessor(
     (entry) => getPrivacyAdversariesTableValue(entry.adversaries),
     {
       id: 'adversaries',
@@ -269,27 +290,21 @@ const columns = [
   }),
 ]
 
-const initialSorting: SortingState = [{ id: 'totalValueLockedUsd', desc: true }]
-
 export function PrivacySummaryTable({
   entries,
 }: {
   entries: PrivacySummaryEntry[]
 }) {
-  const [sorting, setSorting] = useState<SortingState>(initialSorting)
-
   const table = useTable('PrivacySummaryTable', {
     data: entries,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     state: {
-      sorting,
       columnPinning: {
         left: ['#', 'logo'],
       },
     },
-    onSortingChange: setSorting,
   })
 
   return (
