@@ -4,12 +4,15 @@ import { assert } from '@l2beat/shared-pure'
 import { v } from '@l2beat/validate'
 
 const API_URL = 'https://api.relay.link'
+const MAX_PAGE_SIZE = 100
 
 interface GetRequestsOptions {
   limit?: number
   continuation?: string
   startTimestamp?: number
   endTimestamp?: number
+  status?: 'success'
+  chainId?: number
   sortBy?: 'createdAt' | 'updatedAt'
   sortDirection?: 'asc' | 'desc'
 }
@@ -115,7 +118,9 @@ interface RelayApiClientOptions {
 }
 
 const DEFAULT_OPTIONS: RelayApiClientOptions = {
-  callsPerMinute: 200,
+  // Relay's default /requests quota is 200 calls/minute per API key. Leave
+  // headroom for rolling-window accounting and other consumers of the key.
+  callsPerMinute: 190,
   maxAttempts: 4,
   initialRetryDelayMs: 1_000,
   maxRetryDelayMs: 4_000,
@@ -183,7 +188,7 @@ export class RelayApiClient {
         ...options,
         sortBy: 'updatedAt',
         sortDirection: 'asc',
-        limit: Math.min(remaining, 50),
+        limit: Math.min(remaining, MAX_PAGE_SIZE),
         continuation,
       })
 
@@ -269,6 +274,7 @@ export class RelayApiClient {
         this.logger.warn('Retrying Relay API page', {
           attempt,
           delay,
+          status: error instanceof RelayHttpError ? error.status : undefined,
           error: error instanceof Error ? error.message : error,
         })
         if (delay > 0) {

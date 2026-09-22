@@ -67,6 +67,8 @@ describe(RelayApiClient.name, () => {
       const result = await client.getRequests({
         startTimestamp: 100,
         endTimestamp: 200,
+        status: 'success',
+        chainId: 42161,
       })
 
       expect(result.requests[0]).toEqual({
@@ -84,6 +86,8 @@ describe(RelayApiClient.name, () => {
       expect(url as string).toInclude('/requests/v3?')
       expect(url as string).toInclude('startTimestamp=100')
       expect(url as string).toInclude('endTimestamp=200')
+      expect(url as string).toInclude('status=success')
+      expect(url as string).toInclude('chainId=42161')
       expect(init).toEqual({ headers: { 'x-api-key': 'api-key' } })
     })
 
@@ -213,16 +217,21 @@ describe(RelayApiClient.name, () => {
       const url = httpClient.fetchRaw.calls[0]?.args[0] as string
       expect(url).toInclude('sortBy=updatedAt')
       expect(url).toInclude('sortDirection=asc')
+      expect(url).toInclude('limit=100')
     })
 
     it('retries a rate-limited page at the same cursor', async () => {
+      const warn = mockFn().returns(undefined)
+      const logger = mockObject<Logger>({
+        for: mockFn().returns(mockObject<Logger>({ warn })),
+      })
       const httpClient = mockObject<HttpClient>({
         fetchRaw: mockFn()
           .resolvesToOnce(ok(page([request('a')], 'cursor-1')))
           .resolvesToOnce(httpError(429, 'Too Many Requests'))
           .resolvesToOnce(ok(page([request('b')], undefined))),
       })
-      const client = createClient(httpClient)
+      const client = createClient(httpClient, logger)
 
       const result = await client.getAllRequests({ limit: 500 })
 
@@ -232,6 +241,12 @@ describe(RelayApiClient.name, () => {
       const retriedUrl = httpClient.fetchRaw.calls[2]?.args[0] as string
       expect(failedUrl).toEqual(retriedUrl)
       expect(retriedUrl).toInclude('continuation=cursor-1')
+      expect(warn).toHaveBeenOnlyCalledWith('Retrying Relay API page', {
+        attempt: 1,
+        delay: 0,
+        status: 429,
+        error: 'Relay API error: 429 Too Many Requests {"statusCode":429}',
+      })
     })
 
     it('throws a permanent later-page failure instead of returning a partial window', async () => {
